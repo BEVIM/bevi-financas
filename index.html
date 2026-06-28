@@ -3,163 +3,252 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#231f20" />
   <title>BEVI FINANÇAS</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <h1>BEVI FINANÇAS</h1>
-      <p id="familyLabel">Controle financeiro do casal</p>
-    </div>
-    <button id="logoutBtn" class="ghost hidden">Sair</button>
-  </header>
+  <div class="app-shell">
+    <header class="topbar">
+      <div><p class="eyebrow">ERP financeiro pessoal e familiar</p><h1>BEVI FINANÇAS</h1></div>
+      <button id="seedBtn" class="ghost">Dados exemplo</button>
+    </header>
 
-  <main>
-    <section id="authView" class="card auth-card">
-      <h2>Entrar ou criar conta</h2>
-      <label>E-mail</label>
-      <input id="email" type="email" placeholder="seuemail@email.com" autocomplete="email" />
-      <label>Senha</label>
-      <input id="password" type="password" placeholder="mínimo 6 caracteres" autocomplete="current-password" />
-      <div class="row">
-        <button id="loginBtn">Entrar</button>
-        <button id="signupBtn" class="secondary">Criar conta</button>
-      </div>
-      <p class="hint">Após criar a conta, veja se o Supabase enviou confirmação por e-mail. Se exigir confirmação, confirme antes de entrar.</p>
-      <p id="authMsg" class="msg"></p>
-    </section>
+    <nav class="tabs" aria-label="Navegação principal">
+      <button class="tab active" data-screen="dashboard">Dashboard</button>
+      <button class="tab" data-screen="despesas">Despesas</button>
+      <button class="tab" data-screen="receitas">Receitas</button>
+      <button class="tab" data-screen="contas">Contas</button>
+      <button class="tab" data-screen="cartoes">Cartões/Faturas</button>
+      <button class="tab" data-screen="metas">Metas</button>
+      <button class="tab" data-screen="contaConjunta">Conta Conjunta</button>
+      <button class="tab" data-screen="simulador">Simulador</button>
+      <button class="tab" data-screen="cadastros">Cadastros</button>
+      <button class="tab" data-screen="historico">Histórico</button>
+      <button class="tab" data-screen="config">Config</button>
+    </nav>
 
-    <section id="setupView" class="card hidden">
-      <h2>Configurar casal/família</h2>
-      <p>Crie um código para o casal ou use o código já criado pelo outro.</p>
-      <label>Código da família</label>
-      <input id="familyCodeInput" placeholder="ex: BEVI-CASA" />
-      <div class="row">
-        <button id="useFamilyBtn">Entrar nesse código</button>
-        <button id="makeFamilyBtn" class="secondary">Criar código automático</button>
-      </div>
-      <p id="setupMsg" class="msg"></p>
-    </section>
-
-    <section id="appView" class="hidden app-grid">
-      <section class="card span-2">
-        <div class="section-head">
-          <h2>Dashboard</h2>
-          <button id="refreshBtn" class="ghost">Atualizar</button>
+    <main>
+      <section id="dashboard" class="screen active">
+        <div class="grid cards two-cards">
+          <article class="card stat owner-card"><span>Larissa</span><strong id="saldoLarissaMes">R$ 0,00</strong><small>Recebida: <b id="receitaRecebidaLarissa">R$ 0,00</b></small><small>Pendente: <b id="receitaPendenteLarissa">R$ 0,00</b></small></article>
+          <article class="card stat owner-card"><span>Davi</span><strong id="saldoDaviMes">R$ 0,00</strong><small>Recebida: <b id="receitaRecebidaDavi">R$ 0,00</b></small><small>Pendente: <b id="receitaPendenteDavi">R$ 0,00</b></small></article>
         </div>
-        <div class="metrics">
-          <div class="metric"><span>Receitas recebidas</span><strong id="mRecebidas">R$ 0,00</strong></div>
-          <div class="metric"><span>Receitas pendentes</span><strong id="mRecPend">R$ 0,00</strong></div>
-          <div class="metric"><span>Despesas pagas</span><strong id="mPagas">R$ 0,00</strong></div>
-          <div class="metric"><span>Despesas pendentes</span><strong id="mPendentes">R$ 0,00</strong></div>
-          <div class="metric highlight"><span>Saldo executado</span><strong id="mSaldo">R$ 0,00</strong></div>
-          <div class="metric"><span>A receber terceiros</span><strong id="mTerceiros">R$ 0,00</strong></div>
+        <div class="grid cards two-cards">
+          <article class="card stat"><span>A receber terceiros</span><strong id="aReceber">R$ 0,00</strong></article>
+          <article class="card stat"><span>Receitas pendentes no período</span><strong id="receitaPendente">R$ 0,00</strong></article>
         </div>
+        <div class="grid cards three-cards">
+          <article class="card stat"><span>Saldo Casa disponível</span><strong id="saldoDisponivelCasa">R$ 0,00</strong><small>Despesas pendentes: <b id="pendenteCasaDisponivel">R$ 0,00</b></small><small>Saldo confirmado menos metas destinadas</small></article>
+          <article class="card stat"><span>Saldo destinado às metas</span><strong id="saldoDestinadoMetas">R$ 0,00</strong><small>Valor reservado para objetivos</small></article>
+          <article class="card stat"><span>Saldo Casa total</span><strong id="saldoCasaComMetas">R$ 0,00</strong><small>Disponível + metas</small></article>
+        </div>
+
+        <div class="grid two">
+          <article class="card"><h2>Receitas a confirmar do período</h2><div id="receitasAConfirmar" class="list empty">Nenhuma receita pendente.</div></article>
+          <article class="card"><h2>Contas a pagar do período</h2><div id="contasHojeAtraso" class="list empty">Nenhuma conta para baixa.</div></article>
+        </div>
+        <article class="card"><h2>Depósitos pendentes da conta conjunta</h2><div id="depositosPendentes" class="list empty">Nenhum depósito pendente.</div></article>
+        <article class="card"><h2>Faturas pendentes no mês</h2><div id="faturasResumoMes" class="list empty">Nenhuma fatura pendente.</div></article>
+        <article class="card"><h2>Repasses entre Larissa e Davi</h2><div id="listaAcertos" class="list empty">Nenhum repasse pendente.</div></article>
+
+        <div class="grid two">
+          <article class="card"><h2>Despesas pagas e pendentes</h2><div id="despesasStatusResumo" class="list empty"></div></article>
+          <article class="card"><h2>Tipos de despesa</h2><div id="graficoCategorias" class="bar-chart empty"></div></article>
+        </div>
+
+        <article class="card"><h2>Fluxo de caixa ao longo do tempo</h2><div class="form-grid small"><label>Início do gráfico <input id="fluxoInicio" type="month"></label><label>Fim do gráfico <input id="fluxoFim" type="month"></label></div><div id="linhaTempo" class="timeline empty"></div><div id="detalheFluxo" class="list empty fluxo-detail">Clique em um mês para ver as movimentações que formam o saldo.</div></article>
       </section>
 
-      <section class="card">
-        <h2>Novo lançamento</h2>
-        <label>Tipo</label>
-        <select id="tipo">
-          <option value="despesa">Despesa</option>
-          <option value="receita">Receita</option>
-          <option value="transferencia">Transferência</option>
-        </select>
-        <label>Título</label>
-        <input id="titulo" placeholder="Ex: Mercado, salário, luz" />
-        <label>Responsável</label>
-        <select id="responsavel">
-          <option>Casa</option>
-          <option>Larissa</option>
-          <option>Davi</option>
-          <option>Terceiro</option>
-        </select>
-        <label>Quem pagou/recebeu</label>
-        <select id="pagador">
-          <option>Larissa</option>
-          <option>Davi</option>
-          <option>Casa</option>
-          <option>Terceiro</option>
-        </select>
-        <label>Categoria</label>
-        <select id="categoria"></select>
-        <label>Terceiro, se houver</label>
-        <select id="terceiro"></select>
-        <label>Valor</label>
-        <input id="valor" type="number" step="0.01" placeholder="0,00" />
-        <label>Status</label>
-        <select id="status">
-          <option value="pendente">Pendente</option>
-          <option value="pago">Pago</option>
-          <option value="recebido">Recebido</option>
-          <option value="confirmado">Confirmado</option>
-          <option value="assumido">Assumido</option>
-        </select>
-        <label>Vencimento/Pagamento previsto</label>
-        <input id="vencimento" type="date" />
-        <label>Observação</label>
-        <textarea id="observacao" rows="2"></textarea>
-        <button id="saveBtn">Salvar lançamento</button>
-        <p id="saveMsg" class="msg"></p>
-      </section>
-
-      <section class="card">
-        <h2>Cadastros rápidos</h2>
-        <label>Tipo</label>
-        <select id="cadTipo">
-          <option value="categoria">Categoria</option>
-          <option value="terceiro">Terceiro</option>
-        </select>
-        <label>Nome</label>
-        <input id="cadNome" placeholder="Ex: Energia, Mãe do Davi" />
-        <button id="cadSaveBtn">Cadastrar</button>
-        <div id="cadList" class="list compact"></div>
-      </section>
-
-      <section class="card span-2">
-        <div class="section-head">
-          <h2>Movimentações</h2>
-          <div class="row small-row">
-            <select id="filterStatus" multiple size="1">
-              <option value="pendente">Pendente</option>
-              <option value="pago">Pago</option>
-              <option value="recebido">Recebido</option>
-              <option value="confirmado">Confirmado</option>
-              <option value="assumido">Assumido</option>
-            </select>
-            <button id="exportBtn" class="secondary">Exportar CSV</button>
+      <section id="despesas" class="screen">
+        <article class="card">
+          <h2>Nova despesa</h2>
+          <form id="formDespesa" class="form-grid">
+            <label>Data da despesa <input name="data" type="date" required></label>
+            <label>Descrição <input name="descricao" placeholder="Mercado, energia, parcela mãe..." required></label>
+            <label>Valor previsto <input name="valor" type="number" step="0.01" min="0" required></label>
+            <label>Categoria <select name="categoria" id="categoriaDespesa"></select></label>
+            <label>Responsável
+              <select name="responsavel"><option>Casal</option><option>Larissa</option><option>Davi</option><option>Terceiro</option></select>
+            </label>
+            <label>Quem pagou / pagará
+              <select name="pagador"><option>Larissa</option><option>Davi</option><option>Casal</option></select>
+            </label>
+            <label>Forma de pagamento
+              <select name="forma" id="formaDespesa"><option>Pix/Débito</option><option>Dinheiro</option><option>Cartão de crédito</option><option>Cartão de débito</option></select>
+            </label>
+            <label>Cartão <select name="cartao" id="cartaoDespesa"></select></label>
+            <label>Terceiro <select name="terceiro" id="terceiroDespesa"></select></label>
+            <label>Parcelas <input name="parcelas" type="number" min="1" value="1"></label>
+            <label>Status
+              <select name="status" id="statusDespesa"><option>Pago</option><option>Pendente</option><option>A receber</option><option>Recebido</option></select>
+            </label>
+            <button class="primary" type="submit">Salvar despesa</button>
+          </form>
+          <p class="muted">Cartão de crédito entra como pendente e só é quitado pela baixa da fatura. Se a fatura já estiver paga, o app bloqueia novo lançamento até reabrir.</p>
+        </article>
+        <article class="card"><h2>Despesas</h2>
+          <div class="filter-row" id="filtroStatusDespesas">
+            <label><input type="checkbox" value="Pago" checked> Pago</label>
+            <label><input type="checkbox" value="Pendente" checked> Pendente</label>
+            <label><input type="checkbox" value="A receber" checked> A receber</label>
+            <label><input type="checkbox" value="Recebido" checked> Recebido</label>
           </div>
-        </div>
-        <div id="movList" class="list"></div>
+          <div id="listaDespesas" class="list empty">Nenhuma despesa ainda.</div>
+        </article>
       </section>
-    </section>
-  </main>
 
-  <dialog id="editDialog">
-    <form method="dialog" class="dialog-form">
-      <h2>Ajustar lançamento</h2>
-      <input id="editId" type="hidden" />
-      <label>Título</label><input id="editTitulo" />
-      <label>Valor</label><input id="editValor" type="number" step="0.01" />
-      <label>Status</label>
-      <select id="editStatus">
-        <option value="pendente">Pendente</option>
-        <option value="pago">Pago</option>
-        <option value="recebido">Recebido</option>
-        <option value="confirmado">Confirmado</option>
-        <option value="assumido">Assumido</option>
-      </select>
-      <label>Data pagamento/recebimento</label><input id="editPagamento" type="date" />
-      <label>Observação</label><textarea id="editObs"></textarea>
-      <div class="row">
-        <button id="confirmEditBtn" value="default">Salvar ajuste</button>
-        <button class="secondary" value="cancel">Cancelar</button>
-      </div>
-    </form>
-  </dialog>
+      <section id="receitas" class="screen">
+        <article class="card">
+          <h2>Nova receita</h2>
+          <form id="formReceita" class="form-grid small">
+            <label>Data <input name="data" type="date" required></label>
+            <label>Descrição <input name="descricao" placeholder="Salário CLT, serviço avulso, reembolso..." required></label>
+            <label>Valor <input name="valor" type="number" step="0.01" min="0" required></label>
+            <label>Pessoa <select name="pessoa"><option>Larissa</option><option>Davi</option></select></label>
+            <label>Status <select name="status"><option>Confirmada</option><option>Pendente</option></select></label>
+            <button class="primary" type="submit">Salvar receita</button>
+          </form>
+        </article>
+        <article class="card">
+          <h2>Receita recorrente</h2>
+          <form id="formReceitaRecorrente" class="form-grid small">
+            <label>Nome <input name="nome" placeholder="Salário CLT, contrato fixo..." required></label>
+            <label>Tipo <select name="tipo"><option>Fixa</option><option>Variável</option></select></label>
+            <label>Valor previsto <input name="valorPrevisto" type="number" step="0.01" min="0" required></label>
+            <label>Dia previsto <input name="vencimento" type="number" min="1" max="31" required></label>
+            <label>Pessoa <select name="pessoa"><option>Larissa</option><option>Davi</option></select></label>
+            <button class="primary" type="submit">Salvar receita recorrente</button>
+          </form>
+          <button id="gerarReceitasBtn" class="ghost">Gerar receitas previstas do mês selecionado</button>
+          <div id="listaReceitasRecorrentes" class="list empty"></div>
+        </article>
+        <article class="card"><h2>Receitas</h2>
+          <div class="filter-row" id="filtroStatusReceitas">
+            <label><input type="checkbox" value="Confirmada" checked> Confirmada</label>
+            <label><input type="checkbox" value="Pendente" checked> Pendente</label>
+          </div>
+          <div id="listaReceitas" class="list empty">Nenhuma receita ainda.</div>
+        </article>
+      </section>
 
-  <script src="app.js"></script>
+      <section id="contas" class="screen">
+        <article class="card">
+          <h2>Conta recorrente</h2>
+          <form id="formConta" class="form-grid small">
+            <label>Nome <input name="nome" placeholder="Energia, internet, aluguel..." required></label>
+            <label>Tipo <select name="tipo"><option>Fixa</option><option>Variável</option></select></label>
+            <label>Valor previsto <input name="valorPrevisto" type="number" step="0.01" min="0" required></label>
+            <label>Vencimento dia <input name="vencimento" type="number" min="1" max="31" required></label>
+            <label>Categoria <select name="categoria" id="categoriaConta"></select></label>
+            <label>Responsável <select name="responsavel"><option>Casal</option><option>Larissa</option><option>Davi</option></select></label>
+            <label>Quem paga <select name="pagador"><option>Larissa</option><option>Davi</option><option>Casal</option></select></label>
+            <button class="primary" type="submit">Salvar conta</button>
+          </form>
+        </article>
+        <article class="card"><h2>Provisões do mês</h2><button id="gerarProvisoesBtn" class="ghost">Gerar despesas previstas do mês selecionado</button><div id="listaContas" class="list empty"></div></article>
+      </section>
+
+      <section id="cartoes" class="screen">
+        <article class="card">
+          <h2>Novo cartão</h2>
+          <form id="formCartao" class="form-grid small">
+            <label>Nome <input name="nome" placeholder="Nubank Larissa" required></label>
+            <label>Dono <select name="dono"><option>Larissa</option><option>Davi</option></select></label>
+            <label>Fecha dia <input name="fecha" type="number" min="1" max="31" required></label>
+            <label>Vence dia <input name="vence" type="number" min="1" max="31" required></label>
+            <button class="primary" type="submit">Salvar cartão</button>
+          </form>
+        </article>
+        <article class="card"><h2>Faturas</h2><div id="listaFaturas" class="list empty">Nenhuma fatura.</div></article>
+        <article class="card"><h2>Detalhes da fatura</h2><div id="detalheFatura" class="list empty">Clique em “Detalhar” em uma fatura.</div></article>
+        <article class="card"><h2>Cartões cadastrados</h2><div id="listaCartoes" class="list empty">Nenhum cartão cadastrado.</div></article>
+      </section>
+
+      <section id="contaConjunta" class="screen">
+        <article class="card">
+          <h2>Nova transferência para conta conjunta</h2>
+          <form id="formContaConjunta" class="form-grid small">
+            <label>Data planejada/realizada <input name="data" type="date" required></label>
+            <label>Descrição <input name="descricao" placeholder="Depósito para casa, caixinha, reserva..." required></label>
+            <label>Valor <input name="valor" type="number" step="0.01" min="0" required></label>
+            <label>Quem vai transferir <select name="de"><option>Larissa</option><option>Davi</option></select></label>
+            <label>Destino <select name="paraCaixinha" id="destinoContaConjunta"><option value="Casa">Conta conjunta da Casa</option></select></label>
+            <label>Status <select name="status"><option>Confirmada</option><option>Pendente</option></select></label>
+            <label class="checkline"><input name="recorrente" id="recorrenteContaConjunta" type="checkbox"> Transferência recorrente mensal <small>(sempre entra como pendente)</small></label>
+            <button class="primary" type="submit">Salvar transferência</button>
+          </form>
+          <p class="muted">Transferências confirmadas entram no saldo da Casa no Dashboard. Transferências pendentes aparecem no painel inicial para confirmação.</p>
+        </article>
+        <article class="card"><h2>Saldo e movimentações da conta conjunta</h2><div id="resumoContaConjunta" class="list empty"></div></article>
+        <article class="card"><h2>Transferências cadastradas</h2><div id="listaContaConjunta" class="list empty">Nenhuma transferência cadastrada.</div></article>
+      </section>
+
+      <section id="metas" class="screen">
+        <article class="card">
+          <h2>Nova meta</h2>
+          <form id="formMeta" class="form-grid small">
+            <label>Nome <input name="nome" placeholder="Reforma, viagem, reserva..." required></label>
+            <label>Valor objetivo <input name="objetivo" type="number" step="0.01" min="0" required></label>
+            <label>Retirada mensal <input name="retiradaMensal" type="number" step="0.01" min="0" value="0"></label>
+            <label>Prazo desejado <input name="prazo" type="date"></label>
+            <label>Prioridade <select name="prioridade"><option>Alta</option><option>Média</option><option>Baixa</option></select></label>
+            <button class="primary" type="submit">Salvar meta</button>
+          </form>
+        </article>
+        <article class="card"><h2>Destinação de saldo para metas</h2><div id="painelDestinacaoMetas" class="list empty">Nenhuma meta cadastrada.</div></article>
+        <article class="card"><h2>Metas cadastradas</h2><div id="listaMetas" class="list empty">Nenhuma meta cadastrada.</div></article>
+      </section>
+
+      <section id="simulador" class="screen">
+        <article class="card">
+          <h2>Simulador de fluxo de caixa</h2>
+          <form id="formSimulador" class="form-grid small">
+            <label>Nome <input name="nome" placeholder="Compra do carro" required></label>
+            <label>Entrada <input name="entrada" type="number" step="0.01" min="0" value="0"></label>
+            <label>Parcelas <input name="parcelas" type="number" min="1" value="12"></label>
+            <label>Valor da parcela <input name="valorParcela" type="number" step="0.01" min="0" required></label>
+            <label>Custos extras mensais <input name="extras" type="number" step="0.01" min="0" value="0"></label>
+            <button class="primary" type="submit">Simular</button>
+          </form>
+          <div id="resultadoSimulador" class="sim-result"></div>
+        </article>
+      </section>
+
+      <section id="cadastros" class="screen">
+        <div class="grid two">
+          <article class="card"><h2>Categorias</h2><form id="formCategoria" class="inline-form"><input name="nome" placeholder="Ex: Moradia" required><button class="primary">Cadastrar</button></form><div id="listaCategorias" class="list empty"></div></article>
+          <article class="card"><h2>Terceiros</h2><form id="formTerceiro" class="inline-form"><input name="nome" placeholder="Ex: Mãe do Davi" required><button class="primary">Cadastrar</button></form><div id="listaTerceiros" class="list empty"></div></article>
+        </div>
+      </section>
+
+      <section id="historico" class="screen">
+        <article class="card">
+          <h2>Histórico de movimentações</h2>
+          <p class="muted">Trilha de auditoria com data do lançamento, vencimento/pagamento e status da movimentação.</p>
+          <div class="form-grid small">
+            <label>Início <input id="histInicio" type="date"></label>
+            <label>Fim <input id="histFim" type="date"></label>
+            <label>Tipo
+              <select id="histTipo">
+                <option value="Todos">Todos</option>
+                <option value="Despesa">Despesas</option>
+                <option value="Receita">Receitas</option>
+                <option value="Fatura">Faturas</option>
+                <option value="Transferência">Transferências/Repasses</option>
+              </select>
+            </label>
+          </div>
+          <div id="listaHistorico" class="list empty">Nenhuma movimentação.</div>
+        </article>
+      </section>
+
+      <section id="config" class="screen">
+        <article class="card danger-zone"><h2>Configurações</h2><p>Os dados ficam salvos neste navegador. Use exportar/importar para backup.</p><div class="actions"><button id="exportBtn" class="ghost">Exportar JSON</button><button id="exportCsvBtn" class="ghost">Exportar CSV</button><button id="templateCsvBtn" class="ghost">Baixar modelo CSV</button><label class="ghost file-label">Importar JSON/CSV <input id="importFile" type="file" accept="application/json,.csv,text/csv"></label><button id="clearBtn" class="danger">Apagar tudo</button></div></article>
+      </section>
+    </main>
+  </div>
+  <script src="script.js"></script>
 </body>
 </html>
