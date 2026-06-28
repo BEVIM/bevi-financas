@@ -13,5 +13,33 @@
 .selected-summary{border-color:var(--accent2);background:#f8f6ff}
 .negative-text{color:var(--danger)}
 
-/* Commit 0005 - Fluxo de acesso separado */
-.hidden{display:none!important}.auth-screen{max-width:880px;margin:24px auto}.auth-grid{align-items:end}.auth-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.auth-status{margin:10px 0 16px;color:var(--muted);font-weight:700}.logged-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:16px;background:#fff;margin:10px 0 16px}.auth-choice-grid{align-items:stretch}.sub-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:16px;display:grid;gap:12px}.sub-card h3{margin:0;color:var(--accent)}.compact-session-card{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:16px;padding:14px 16px}.compact-session-card small{display:block;color:var(--muted);margin-top:3px}.app-content{animation:beviFade .18s ease-out}@keyframes beviFade{from{opacity:.3;transform:translateY(6px)}to{opacity:1;transform:none}}@media(max-width:850px){.compact-session-card,.logged-row{display:grid}.auth-actions{justify-content:flex-start}}
+
+
+/* ======================================================================
+   MÓDULO CLOUD - LOGIN / FAMÍLIA / SINCRONIZAÇÃO
+   ====================================================================== */
+.hidden{display:none!important}
+body.bevi-locked .tabs,
+body.bevi-locked main{display:none}
+body.bevi-unlocked #beviAuthPanel{display:none}
+.auth-card{margin-top:18px}
+.auth-status{padding:12px 14px;border-radius:16px;background:#fff;border:1px solid var(--line);margin-bottom:14px;font-weight:800;color:var(--muted)}
+.auth-status[data-type="success"]{background:#edf8ef;color:#2c6b3f;border-color:#cce8d2}
+.auth-status[data-type="error"]{background:#fff0f0;color:#8b2f2f;border-color:#efb1b1}
+.auth-step{display:grid;gap:14px}
+.auth-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.inner-card{border:1px solid var(--line);border-radius:20px;background:#fff;padding:16px;display:grid;gap:12px}
+.family-code-box{border:1px solid var(--accent2);background:#fffaf1;border-radius:18px;padding:14px;display:grid;gap:8px;margin-top:10px}
+.family-code-box span{color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.family-code-box strong{font-size:28px;letter-spacing:.12em}
+.session-pill{display:grid;gap:6px;justify-items:end;text-align:right;background:#fff;border:1px solid var(--line);border-radius:18px;padding:12px;box-shadow:var(--shadow)}
+.session-pill span{font-size:12px;color:var(--muted);font-weight:800}
+.session-pill strong{font-size:14px}
+.session-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.session-actions .ghost,.session-actions .danger{padding:8px 10px;border-radius:12px;font-size:12px}
+@media(max-width:850px){
+  .session-pill{justify-items:start;text-align:left;width:100%}
+  .session-actions{justify-content:flex-start}
+  .auth-actions{align-items:stretch}
+  .auth-actions button{width:100%}
+}

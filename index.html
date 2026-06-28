@@ -8,60 +8,66 @@
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<body class="bevi-locked">
   <div class="app-shell">
     <header class="topbar">
       <div><p class="eyebrow">ERP financeiro pessoal e familiar</p><h1>BEVI FINANÇAS</h1></div>
-     
-    </header>
-
-    <section class="card auth-screen" id="loginScreen">
-      <h2>Entrar no BEVI</h2>
-      <p class="muted">Acesse com seu e-mail. Depois do login, você poderá entrar em uma família pelo Código BEVI ou criar uma nova.</p>
-      <div class="auth-status" id="beviLoginStatus">Informe seus dados para acessar.</div>
-      <form id="loginForm" class="form-grid small auth-grid">
-        <label>E-mail <input id="authEmail" type="email" placeholder="seu@email.com" autocomplete="email" required></label>
-        <label>Senha <input id="authPassword" type="password" placeholder="mínimo 6 caracteres" autocomplete="current-password" required></label>
-        <div class="auth-actions">
-          <button type="submit" class="primary" id="authLoginBtn">Entrar</button>
-          <button type="button" class="ghost" id="authSignupBtn">Criar conta</button>
-          <button type="button" class="ghost" id="forgotPasswordBtn">Esqueci senha</button>
-        </div>
-      </form>
-    </section>
-
-    <section class="card auth-screen hidden" id="familyScreen">
-      <h2>Conectar família</h2>
-      <p class="muted">Você já está logado. Agora escolha como quer acessar o ambiente financeiro.</p>
-      <div class="auth-status" id="beviFamilyStatus">Aguardando Código BEVI ou criação da família.</div>
-      <div class="logged-row"><span id="loggedEmailInfo">Logado</span><button type="button" class="ghost" id="authLogoutBtn">Sair</button></div>
-      <div class="grid two auth-choice-grid">
-        <article class="sub-card">
-          <h3>Entrar em família existente</h3>
-          <label>Código BEVI <input id="familyCodeInput" placeholder="Ex.: A1B2C3"></label>
-          <button type="button" class="primary" id="joinFamilyBtn">Entrar por código</button>
-        </article>
-        <article class="sub-card">
-          <h3>Criar nova família</h3>
-          <label>Nome da família <input id="familyNameInput" placeholder="Casa Larissa e Davi"></label>
-          <button type="button" class="primary" id="createFamilyBtn">Criar família</button>
-        </article>
-      </div>
-      <div class="auth-actions family-share-actions hidden" id="familyShareActions">
-        <button type="button" class="ghost" id="copyFamilyCodeBtn">Copiar código</button>
-        <button type="button" class="ghost" id="emailFamilyCodeBtn">Enviar por e-mail</button>
-      </div>
-    </section>
-
-    <div id="appContent" class="app-content hidden">
-      <section class="card compact-session-card" id="sessionBar">
-        <div><strong id="sessionUserLabel">Usuário</strong><small id="sessionFamilyLabel">Família não conectada</small></div>
-        <div class="auth-actions">
+      <div class="session-pill hidden" id="sessionInfo">
+        <span id="sessionEmail">Não conectado</span>
+        <strong id="sessionFamily">Sem família</strong>
+        <div class="session-actions">
           <button type="button" class="ghost" id="syncNowBtn">Sincronizar agora</button>
           <button type="button" class="ghost" id="switchFamilyBtn">Trocar família</button>
-          <button type="button" class="ghost" id="appLogoutBtn">Sair</button>
+          <button type="button" class="danger" id="logoutTopBtn">Sair</button>
         </div>
-      </section>
+      </div>
+    </header>
+
+    <section class="card auth-card" id="beviAuthPanel">
+      <h2>Entrar no BEVI</h2>
+      <div class="auth-status" id="beviSyncStatus">Aguardando login...</div>
+
+      <div id="authLoginStep" class="auth-step">
+        <p class="muted">Acesse sua conta para carregar os dados salvos na nuvem.</p>
+        <div class="form-grid small auth-grid">
+          <label>E-mail <input id="authEmail" type="email" placeholder="seu@email.com" autocomplete="email"></label>
+          <label>Senha <input id="authPassword" type="password" placeholder="mínimo 6 caracteres" autocomplete="current-password"></label>
+          <div class="auth-actions">
+            <button type="button" class="primary" id="authLoginBtn">Entrar</button>
+            <button type="button" class="ghost" id="authSignupBtn">Criar conta</button>
+            <button type="button" class="ghost" id="authResetBtn">Esqueci senha</button>
+          </div>
+        </div>
+        <p class="muted">Se o e-mail já estiver cadastrado, use <b>Entrar</b> ou <b>Esqueci senha</b>. O Supabase não cria dois usuários iguais com o mesmo e-mail.</p>
+      </div>
+
+      <div id="familyStep" class="auth-step hidden">
+        <h3>Conectar família</h3>
+        <p class="muted">Depois do login, entre com um Código BEVI existente ou crie uma nova família.</p>
+        <div class="grid two">
+          <article class="inner-card">
+            <h3>Entrar com Código BEVI</h3>
+            <label>Código BEVI <input id="familyCodeInput" placeholder="Ex.: A1B2C3" maxlength="12"></label>
+            <button type="button" class="primary" id="joinFamilyBtn">Entrar na família</button>
+          </article>
+          <article class="inner-card">
+            <h3>Criar nova família</h3>
+            <label>Nome da família <input id="familyNameInput" placeholder="Casa Larissa e Davi"></label>
+            <button type="button" class="primary" id="createFamilyBtn">Criar família</button>
+          </article>
+        </div>
+        <div id="familyCreatedBox" class="family-code-box hidden">
+          <span>Código BEVI conectado</span>
+          <strong id="currentFamilyCodeLabel">-</strong>
+          <div class="auth-actions">
+            <button type="button" class="ghost" id="copyFamilyCodeBtn">Copiar código</button>
+            <button type="button" class="ghost" id="emailFamilyCodeBtn">Enviar por e-mail</button>
+            <button type="button" class="ghost" id="shareFamilyCodeBtn">Compartilhar</button>
+          </div>
+        </div>
+        <button type="button" class="ghost" id="authLogoutBtn">Sair da conta</button>
+      </div>
+    </section>
 
     <nav class="tabs" aria-label="Navegação principal">
       <button class="tab active" data-screen="dashboard">Dashboard</button>
@@ -296,7 +302,6 @@
         <article class="card danger-zone"><h2>Configurações</h2><p>Os dados ficam salvos neste navegador. Use exportar/importar para backup.</p><div class="actions"><button id="exportBtn" class="ghost">Exportar JSON</button><button id="exportCsvBtn" class="ghost">Exportar CSV</button><button id="templateCsvBtn" class="ghost">Baixar modelo CSV</button><label class="ghost file-label">Importar JSON/CSV <input id="importFile" type="file" accept="application/json,.csv,text/csv"></label><button id="clearBtn" class="danger">Apagar tudo</button></div></article>
       </section>
     </main>
-    </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
