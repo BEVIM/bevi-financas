@@ -125,7 +125,9 @@ function init(){
   if(typeof recorrenteContaConjunta!=='undefined') recorrenteContaConjunta.addEventListener('change', e=>{ const st=formContaConjunta?.querySelector('[name="status"]'); if(st && e.target.checked){ st.value='Pendente'; } });
   gerarProvisoesBtn.addEventListener('click', gerarProvisoes);
   formSimulador.addEventListener('submit', e => { e.preventDefault(); simulate(Object.fromEntries(new FormData(e.target))); });
+ if (typeof seedBtn !== 'undefined' && seedBtn) {
   seedBtn.addEventListener('click', seed);
+}
   clearBtn.addEventListener('click', () => { if(confirm('Apagar todos os dados do BEVI?')){ state=clone(defaultState); selectedFaturaKey=''; save(); }});
   exportBtn.addEventListener('click', exportData);
   if(typeof exportCsvBtn !== 'undefined') exportCsvBtn.addEventListener('click', exportCsvData);
