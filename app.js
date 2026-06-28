@@ -1,31 +1,83 @@
 const SUPABASE_URL = 'https://airmjmjdrswqkgdbgind.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpcm1qbWpkcnN3cWtnZGJnaW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTMwOTQsImV4cCI6MjA5ODE4OTA5NH0.8uesJ31Btb5A17tAJCKi5d0O3nMOSlVPwquVc25Ktb4';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-let session=null, user=null, family=null, cadastros=[], movs=[];
-const $=id=>document.getElementById(id);
-const today=()=>new Date().toISOString().slice(0,10);
-const money=v=>(Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const code=()=>Math.random().toString(36).slice(2,8).toUpperCase();
-function show(id){['authView','setupView','appView'].forEach(x=>$(x).classList.toggle('hidden',x!==id)); $('btnLogout').classList.toggle('hidden',id==='authView');}
-function msg(id,t){$(id).textContent=t||''}
-async function init(){ $('movLancamento').value=today(); $('movVencimento').value=today(); bind(); const res=await sb.auth.getSession(); session=res.data.session; user=session?.user||null; await route(); }
-async function route(){ if(!user){show('authView');return;} family=await getFamily(); if(!family){show('setupView');return;} show('appView'); await loadAll(); }
-async function getFamily(){ const {data,error}=await sb.from('bevi_configuracoes').select('*').eq('chave','familia_ativa').maybeSingle(); if(error){console.warn(error);return null;} return data?.valor||null; }
-async function setFamily(fam){ const {error}=await sb.from('bevi_configuracoes').upsert({familia:'bevi',chave:'familia_ativa',valor:fam},{onConflict:'familia,chave'}); if(error) throw error; family=fam; }
-async function loadAll(){ $('familyTitle').textContent=family.nome; $('familyCode').textContent=family.codigo; $('userTitle').textContent=user.email; await Promise.all([loadCadastros(),loadMovs()]); renderDashboard(); renderCadastros(); renderSelects(); renderMovs(); }
-async function loadCadastros(){ const {data,error}=await sb.from('bevi_cadastros').select('*').eq('familia','bevi').order('ativo',{ascending:false}).order('nome',{ascending:true}); if(error) throw error; cadastros=data||[]; }
-async function loadMovs(){ const {data,error}=await sb.from('bevi_movimentacoes').select('*').eq('familia','bevi').order('data_vencimento',{ascending:false}).order('criado_em',{ascending:false}); if(error) throw error; movs=data||[]; }
-function byTipo(t){return cadastros.filter(c=>c.tipo===t && c.ativo).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));}
-function fill(sel, arr, blank='Selecione'){ sel.innerHTML=`<option value="">${blank}</option>`+arr.map(x=>`<option>${x.nome}</option>`).join('');}
-function renderSelects(){ fill($('movResponsavel'), byTipo('pessoa'),'Casa/Larissa/Davi'); $('movResponsavel').insertAdjacentHTML('afterbegin','<option>Casa</option>'); fill($('movPagador'), byTipo('pessoa'),'Quem pagou/recebeu'); fill($('movCategoria'), byTipo('categoria'),'Categoria'); fill($('movTerceiro'), byTipo('terceiro'),'Sem terceiro'); }
-function renderDashboard(){ const confirmed=['pago','recebido','confirmado']; const rec=movs.filter(m=>m.modulo==='receita'&&confirmed.includes(m.status)).reduce((s,m)=>s+Number(m.valor),0); const desp=movs.filter(m=>m.modulo==='despesa'&&confirmed.includes(m.status)).reduce((s,m)=>s+Number(m.valor),0); const pend=movs.filter(m=>m.status==='pendente').reduce((s,m)=>s+Number(m.valor),0); $('mReceitas').textContent=money(rec); $('mDespesas').textContent=money(desp); $('mSaldo').textContent=money(rec-desp); $('mPendencias').textContent=money(pend); }
-function renderMovs(){ const mod=$('filterModulo').value, st=$('filterStatus').value; const rows=movs.filter(m=>(!mod||m.modulo===mod)&&(!st||m.status===st)); $('movList').innerHTML=''; if(!rows.length){$('movList').innerHTML='<p class="muted">Nenhuma movimentação encontrada.</p>'; return;} rows.forEach(m=>{ const el=$('movTpl').content.cloneNode(true); el.querySelector('.title').textContent=m.titulo; el.querySelector('.meta').textContent=`${m.modulo} • ${m.status} • Resp: ${m.responsavel||'-'} • Pg/Rec: ${m.pagador||'-'} • Venc: ${m.data_vencimento||'-'} • Pag/Rec: ${m.data_pagamento||'-'}`; el.querySelector('.valor').textContent=money(m.valor); el.querySelector('.pay').onclick=()=>baixar(m); el.querySelector('.edit').onclick=()=>editar(m); el.querySelector('.del').onclick=()=>excluir(m); $('movList').appendChild(el); }); }
-function renderCadastros(){ $('cadList').innerHTML=''; cadastros.forEach(c=>{ const div=document.createElement('div'); div.className='item'; div.innerHTML=`<div><strong>${c.nome}</strong><p class="meta">${c.tipo} • ${c.ativo?'Ativo':'Inativo'}</p></div><button class="small secondary">${c.ativo?'Inativar':'Ativar'}</button>`; div.querySelector('button').onclick=async()=>{ await sb.from('bevi_cadastros').update({ativo:!c.ativo}).eq('id',c.id); await loadAll();}; $('cadList').appendChild(div); }); }
-async function salvarMov(){ const payload={familia:'bevi',modulo:$('movModulo').value,tipo:$('movTipo').value,titulo:$('movTitulo').value.trim(),valor:Number($('movValor').value||0),responsavel:$('movResponsavel').value,pagador:$('movPagador').value,terceiro:$('movTerceiro').value,categoria:$('movCategoria').value,status:$('movStatus').value,data_lancamento:$('movLancamento').value||today(),data_vencimento:$('movVencimento').value||null,data_pagamento:$('movPagamento').value||null,cartao:$('movCartao').value||null,parcela_atual:$('movParcelaAtual').value?Number($('movParcelaAtual').value):null,parcelas_total:$('movParcelasTotal').value?Number($('movParcelasTotal').value):null,observacao:$('movObs').value||null,dados:{usuario:user.email}}; if(!payload.titulo||!payload.valor){msg('movMsg','Informe título e valor.'); return;} const {error}=await sb.from('bevi_movimentacoes').insert(payload); if(error){msg('movMsg',error.message);return;} msg('movMsg','Lançamento salvo.'); ['movTitulo','movValor','movCartao','movParcelaAtual','movParcelasTotal','movObs'].forEach(id=>$(id).value=''); await loadAll(); }
-async function baixar(m){ const status=m.modulo==='receita'?'recebido':'pago'; const {error}=await sb.from('bevi_movimentacoes').update({status,data_pagamento:today(),atualizado_em:new Date().toISOString()}).eq('id',m.id); if(error) alert(error.message); await loadAll(); }
-async function editar(m){ const novo=prompt('Novo valor:',m.valor); if(novo===null) return; const novoStatus=prompt('Novo status:',m.status)||m.status; const {error}=await sb.from('bevi_movimentacoes').update({valor:Number(novo),status:novoStatus,atualizado_em:new Date().toISOString()}).eq('id',m.id); if(error) alert(error.message); await loadAll(); }
-async function excluir(m){ if(!confirm('Excluir este lançamento?')) return; const {error}=await sb.from('bevi_movimentacoes').delete().eq('id',m.id); if(error) alert(error.message); await loadAll(); }
-async function salvarCad(){ const tipo=$('cadTipo').value,nome=$('cadNome').value.trim(); if(!nome)return; const {error}=await sb.from('bevi_cadastros').insert({familia:'bevi',tipo,nome}); if(error){alert(error.message);return;} $('cadNome').value=''; await loadAll(); }
-function exportCsv(){ const cols=['id','modulo','tipo','titulo','responsavel','pagador','terceiro','categoria','valor','status','data_lancamento','data_vencimento','data_pagamento','cartao','parcela_atual','parcelas_total','observacao']; const csv=[cols.join(';')].concat(movs.map(r=>cols.map(c=>`"${String(r[c]??'').replaceAll('"','""')}"`).join(';'))).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='bevi_movimentacoes.csv'; a.click(); }
-function bind(){ $('btnSignup').onclick=async()=>{ msg('authMsg','Criando conta...'); const {data,error}=await sb.auth.signUp({email:$('authEmail').value,password:$('authPassword').value,options:{data:{name:$('authName').value}}}); if(error){msg('authMsg',error.message);return;} user=data.user; msg('authMsg','Conta criada. Se pedir confirmação por e-mail, confirme antes de entrar.'); await route();}; $('btnLogin').onclick=async()=>{ const {data,error}=await sb.auth.signInWithPassword({email:$('authEmail').value,password:$('authPassword').value}); if(error){msg('authMsg',error.message);return;} session=data.session; user=data.user; await route();}; $('btnLogout').onclick=async()=>{await sb.auth.signOut(); user=null; family=null; show('authView');}; $('btnCreateFamily').onclick=async()=>{try{ await setFamily({nome:$('familyName').value||'BEVI Casa',codigo:code(),criado_por:user.email}); await route();}catch(e){msg('setupMsg',e.message)}}; $('btnJoinFamily').onclick=async()=>{ msg('setupMsg','Nesta versão MVP, use o mesmo código após a primeira pessoa criar. Como o banco é pessoal, o vínculo será único para vocês dois.'); const fam={nome:'BEVI Casa',codigo:$('inviteCode').value||'BEVI',criado_por:user.email}; await setFamily(fam); await route();}; $('btnCopyCode').onclick=()=>navigator.clipboard.writeText($('familyCode').textContent); document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); b.classList.add('active'); document.querySelectorAll('.tabpane').forEach(p=>p.classList.add('hidden')); $('tab-'+b.dataset.tab).classList.remove('hidden');}); $('btnSalvarMov').onclick=salvarMov; $('btnSalvarCad').onclick=salvarCad; $('btnRecarregar').onclick=loadAll; $('filterModulo').onchange=renderMovs; $('filterStatus').onchange=renderMovs; $('btnExportCsv').onclick=exportCsv; }
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = (id)=>document.getElementById(id);
+let user = null;
+let familia = localStorage.getItem('bevi_familia') || '';
+let movimentos = [];
+let cadastros = [];
+const money = (n)=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const today = ()=>new Date().toISOString().slice(0,10);
+function show(view){ ['authView','setupView','appView'].forEach(v=>$(v).classList.add('hidden')); $(view).classList.remove('hidden'); $('logoutBtn').classList.toggle('hidden', !user); }
+function setMsg(id, txt, ok=false){ $(id).textContent = txt||''; $(id).style.color = ok?'#22c55e':'#fb7185'; }
+async function init(){
+  const {data:{session}} = await db.auth.getSession();
+  user = session?.user || null;
+  if(!user){ show('authView'); return; }
+  if(!familia){ show('setupView'); return; }
+  $('familyLabel').textContent = `Família: ${familia}`;
+  show('appView');
+  await loadAll();
+}
+async function login(){ setMsg('authMsg','Entrando...'); const {error} = await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value}); if(error) return setMsg('authMsg',error.message); setMsg('authMsg','Login realizado.',true); location.reload(); }
+async function signup(){ setMsg('authMsg','Criando conta...'); const {error} = await db.auth.signUp({email:$('email').value.trim(),password:$('password').value}); if(error) return setMsg('authMsg',error.message); setMsg('authMsg','Conta criada. Se receber e-mail de confirmação, confirme e depois entre.',true); }
+async function logout(){ await db.auth.signOut(); localStorage.removeItem('bevi_familia'); location.reload(); }
+function makeFamily(){ $('familyCodeInput').value = 'BEVI-' + Math.random().toString(36).slice(2,8).toUpperCase(); }
+async function useFamily(){ const code=$('familyCodeInput').value.trim().toUpperCase(); if(!code) return setMsg('setupMsg','Informe ou gere um código.'); familia=code; localStorage.setItem('bevi_familia',familia); await ensureDefaults(); location.reload(); }
+async function ensureDefaults(){
+  const defaults=[['pessoa','Larissa'],['pessoa','Davi'],['categoria','Alimentação'],['categoria','Moradia'],['categoria','Transporte'],['categoria','Receita'],['categoria','Cartão de crédito'],['terceiro','Nenhum']];
+  for(const [tipo,nome] of defaults){ await db.from('bevi_cadastros').insert({familia,tipo,nome}).select().maybeSingle(); }
+}
+async function loadAll(){
+  const [mov,cad] = await Promise.all([
+    db.from('bevi_movimentacoes').select('*').eq('familia',familia).order('data_vencimento',{ascending:true}),
+    db.from('bevi_cadastros').select('*').eq('familia',familia).order('ativo',{ascending:false}).order('nome',{ascending:true})
+  ]);
+  if(mov.error) alert('Erro ao carregar movimentos: '+mov.error.message);
+  if(cad.error) alert('Erro ao carregar cadastros: '+cad.error.message);
+  movimentos = mov.data || [];
+  cadastros = cad.data || [];
+  renderCadOptions(); renderDashboard(); renderMovs(); renderCadList();
+}
+function activeByTipo(tipo){ return cadastros.filter(c=>c.tipo===tipo && c.ativo).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')); }
+function renderCadOptions(){
+  $('categoria').innerHTML = activeByTipo('categoria').map(c=>`<option>${c.nome}</option>`).join('') || '<option>Geral</option>';
+  $('terceiro').innerHTML = '<option></option>' + activeByTipo('terceiro').map(c=>`<option>${c.nome}</option>`).join('');
+}
+function renderDashboard(){
+  const rec = movimentos.filter(m=>m.tipo==='receita');
+  const desp = movimentos.filter(m=>m.tipo==='despesa');
+  const recebidas = rec.filter(m=>['recebido','confirmado','pago'].includes(m.status)).reduce((s,m)=>s+Number(m.valor),0);
+  const recPend = rec.filter(m=>m.status==='pendente').reduce((s,m)=>s+Number(m.valor),0);
+  const pagas = desp.filter(m=>['pago','confirmado'].includes(m.status)).reduce((s,m)=>s+Number(m.valor),0);
+  const pend = desp.filter(m=>m.status==='pendente').reduce((s,m)=>s+Number(m.valor),0);
+  const terceiros = rec.filter(m=>m.responsavel==='Terceiro' && m.status==='pendente').reduce((s,m)=>s+Number(m.valor),0);
+  $('mRecebidas').textContent=money(recebidas); $('mRecPend').textContent=money(recPend); $('mPagas').textContent=money(pagas); $('mPendentes').textContent=money(pend); $('mSaldo').textContent=money(recebidas-pagas); $('mTerceiros').textContent=money(terceiros);
+}
+async function saveMov(){
+  const valor=Number($('valor').value||0); if(!valor || !$('titulo').value.trim()) return setMsg('saveMsg','Informe título e valor.');
+  const payload={familia,modulo:'movimentacao',tipo:$('tipo').value,titulo:$('titulo').value.trim(),responsavel:$('responsavel').value,pagador:$('pagador').value,terceiro:$('terceiro').value||null,categoria:$('categoria').value,valor,status:$('status').value,data_lancamento:today(),data_vencimento:$('vencimento').value||null,data_pagamento:['pago','recebido','confirmado'].includes($('status').value)?today():null,observacao:$('observacao').value.trim()||null,dados:{user_id:user.id}};
+  const {error} = await db.from('bevi_movimentacoes').insert(payload);
+  if(error) return setMsg('saveMsg',error.message);
+  ['titulo','valor','vencimento','observacao'].forEach(id=>$(id).value=''); setMsg('saveMsg','Lançamento salvo.',true); await loadAll();
+}
+function selectedStatuses(){ return Array.from($('filterStatus').selectedOptions).map(o=>o.value); }
+function renderMovs(){
+  const sts=selectedStatuses();
+  const arr=movimentos.filter(m=>!sts.length || sts.includes(m.status));
+  $('movList').innerHTML = arr.map(m=>`<div class="item"><div><strong class="${m.tipo}">${m.titulo}</strong><br><small>${m.tipo} • ${m.responsavel||'-'} • ${m.categoria||'-'} • venc.: ${m.data_vencimento||'-'} • pag.: ${m.data_pagamento||'-'}</small><br><span class="pill ${m.status}">${m.status}</span></div><div class="item-actions"><strong>${money(m.valor)}</strong><button class="secondary" onclick="openEdit('${m.id}')">Ajustar</button></div></div>`).join('') || '<p>Nenhum lançamento.</p>';
+}
+async function saveCad(){ const nome=$('cadNome').value.trim(); if(!nome) return; const {error}=await db.from('bevi_cadastros').insert({familia,tipo:$('cadTipo').value,nome,ativo:true}); if(error) return alert(error.message); $('cadNome').value=''; await loadAll(); }
+function renderCadList(){
+  $('cadList').innerHTML = cadastros.map(c=>`<div class="item"><div>${c.nome}<br><small>${c.tipo} • ${c.ativo?'ativo':'inativo'}</small></div><button class="secondary" onclick="toggleCad('${c.id}',${!c.ativo})">${c.ativo?'Inativar':'Ativar'}</button></div>`).join('');
+}
+async function toggleCad(id,ativo){ const {error}=await db.from('bevi_cadastros').update({ativo}).eq('id',id); if(error) return alert(error.message); await loadAll(); }
+function openEdit(id){ const m=movimentos.find(x=>x.id===id); if(!m)return; $('editId').value=m.id; $('editTitulo').value=m.titulo; $('editValor').value=m.valor; $('editStatus').value=m.status; $('editPagamento').value=m.data_pagamento||''; $('editObs').value=m.observacao||''; $('editDialog').showModal(); }
+async function confirmEdit(e){ e.preventDefault(); const id=$('editId').value; const status=$('editStatus').value; const payload={titulo:$('editTitulo').value.trim(),valor:Number($('editValor').value||0),status,data_pagamento:$('editPagamento').value||(['pago','recebido','confirmado'].includes(status)?today():null),observacao:$('editObs').value,atualizado_em:new Date().toISOString()}; const {error}=await db.from('bevi_movimentacoes').update(payload).eq('id',id); if(error) return alert(error.message); $('editDialog').close(); await loadAll(); }
+function exportCSV(){
+  const headers=['id','tipo','titulo','responsavel','pagador','terceiro','categoria','valor','status','data_lancamento','data_vencimento','data_pagamento','observacao'];
+  const rows=movimentos.map(m=>headers.map(h=>`"${String(m[h]??'').replaceAll('"','""')}"`).join(';'));
+  const blob=new Blob([headers.join(';')+'\n'+rows.join('\n')],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='bevi-movimentacoes.csv'; a.click();
+}
+$('loginBtn').onclick=login; $('signupBtn').onclick=signup; $('logoutBtn').onclick=logout; $('makeFamilyBtn').onclick=makeFamily; $('useFamilyBtn').onclick=useFamily; $('saveBtn').onclick=saveMov; $('cadSaveBtn').onclick=saveCad; $('refreshBtn').onclick=loadAll; $('filterStatus').onchange=renderMovs; $('confirmEditBtn').onclick=confirmEdit; $('exportBtn').onclick=exportCSV;
 init();

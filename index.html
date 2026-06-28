@@ -4,108 +4,162 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BEVI FINANÇAS</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <header class="topbar">
-    <div><h1>BEVI FINANÇAS</h1><p>Controle financeiro do casal</p></div>
-    <button id="btnLogout" class="ghost hidden">Sair</button>
+    <div>
+      <h1>BEVI FINANÇAS</h1>
+      <p id="familyLabel">Controle financeiro do casal</p>
+    </div>
+    <button id="logoutBtn" class="ghost hidden">Sair</button>
   </header>
 
-  <main class="container">
+  <main>
     <section id="authView" class="card auth-card">
       <h2>Entrar ou criar conta</h2>
-      <p class="muted">Crie sua conta e depois crie ou entre em um casal/família.</p>
-      <label>Nome</label><input id="authName" placeholder="Seu nome" />
-      <label>E-mail</label><input id="authEmail" type="email" placeholder="email@exemplo.com" />
-      <label>Senha</label><input id="authPassword" type="password" placeholder="mínimo 6 caracteres" />
-      <div class="row"><button id="btnSignup">Criar conta</button><button id="btnLogin" class="secondary">Entrar</button></div>
+      <label>E-mail</label>
+      <input id="email" type="email" placeholder="seuemail@email.com" autocomplete="email" />
+      <label>Senha</label>
+      <input id="password" type="password" placeholder="mínimo 6 caracteres" autocomplete="current-password" />
+      <div class="row">
+        <button id="loginBtn">Entrar</button>
+        <button id="signupBtn" class="secondary">Criar conta</button>
+      </div>
+      <p class="hint">Após criar a conta, veja se o Supabase enviou confirmação por e-mail. Se exigir confirmação, confirme antes de entrar.</p>
       <p id="authMsg" class="msg"></p>
     </section>
 
     <section id="setupView" class="card hidden">
       <h2>Configurar casal/família</h2>
-      <div class="grid2">
-        <div class="panel">
-          <h3>Criar novo casal</h3>
-          <label>Nome do casal/família</label><input id="familyName" placeholder="Ex: Larissa e Davi" />
-          <button id="btnCreateFamily">Criar casal</button>
-        </div>
-        <div class="panel">
-          <h3>Entrar por código</h3>
-          <label>Código de convite</label><input id="inviteCode" placeholder="Cole o código" />
-          <button id="btnJoinFamily" class="secondary">Entrar no casal</button>
-        </div>
+      <p>Crie um código para o casal ou use o código já criado pelo outro.</p>
+      <label>Código da família</label>
+      <input id="familyCodeInput" placeholder="ex: BEVI-CASA" />
+      <div class="row">
+        <button id="useFamilyBtn">Entrar nesse código</button>
+        <button id="makeFamilyBtn" class="secondary">Criar código automático</button>
       </div>
       <p id="setupMsg" class="msg"></p>
     </section>
 
-    <section id="appView" class="hidden">
-      <section class="card hero">
-        <div><h2 id="familyTitle">BEVI</h2><p id="userTitle" class="muted"></p></div>
-        <div class="invite"><span>Código convite:</span><strong id="familyCode"></strong><button id="btnCopyCode" class="ghost">Copiar</button></div>
-      </section>
-
-      <section class="dashboard">
-        <div class="metric"><span>Receitas confirmadas</span><strong id="mReceitas">R$ 0,00</strong></div>
-        <div class="metric"><span>Despesas pagas</span><strong id="mDespesas">R$ 0,00</strong></div>
-        <div class="metric"><span>Saldo executado</span><strong id="mSaldo">R$ 0,00</strong></div>
-        <div class="metric"><span>Pendências</span><strong id="mPendencias">R$ 0,00</strong></div>
-      </section>
-
-      <nav class="tabs">
-        <button class="tab active" data-tab="lancar">Lançar</button>
-        <button class="tab" data-tab="movs">Movimentações</button>
-        <button class="tab" data-tab="cadastros">Cadastros</button>
-        <button class="tab" data-tab="backup">Backup CSV</button>
-      </nav>
-
-      <section id="tab-lancar" class="card tabpane">
-        <h2>Novo lançamento</h2>
-        <div class="formgrid">
-          <label>Módulo<select id="movModulo"><option>despesa</option><option>receita</option><option>conta_conjunta</option><option>meta</option><option>repasse</option><option>terceiro</option></select></label>
-          <label>Tipo<select id="movTipo"><option>avulsa</option><option>fixa</option><option>variavel</option><option>cartao</option><option>pix</option><option>transferencia</option></select></label>
-          <label>Título<input id="movTitulo" placeholder="Ex: Mercado" /></label>
-          <label>Valor<input id="movValor" type="number" step="0.01" /></label>
-          <label>Responsável<select id="movResponsavel"></select></label>
-          <label>Quem pagou/recebeu<select id="movPagador"></select></label>
-          <label>Categoria<select id="movCategoria"></select></label>
-          <label>Terceiro<select id="movTerceiro"></select></label>
-          <label>Status<select id="movStatus"><option>pendente</option><option>pago</option><option>recebido</option><option>confirmado</option><option>assumido</option></select></label>
-          <label>Data lançamento<input id="movLancamento" type="date" /></label>
-          <label>Vencimento<input id="movVencimento" type="date" /></label>
-          <label>Pagamento/recebimento<input id="movPagamento" type="date" /></label>
-          <label>Cartão<input id="movCartao" placeholder="Opcional" /></label>
-          <label>Parcela atual<input id="movParcelaAtual" type="number" min="1" /></label>
-          <label>Total parcelas<input id="movParcelasTotal" type="number" min="1" /></label>
-          <label class="wide">Observação<input id="movObs" /></label>
+    <section id="appView" class="hidden app-grid">
+      <section class="card span-2">
+        <div class="section-head">
+          <h2>Dashboard</h2>
+          <button id="refreshBtn" class="ghost">Atualizar</button>
         </div>
-        <button id="btnSalvarMov">Salvar lançamento</button>
-        <p id="movMsg" class="msg"></p>
+        <div class="metrics">
+          <div class="metric"><span>Receitas recebidas</span><strong id="mRecebidas">R$ 0,00</strong></div>
+          <div class="metric"><span>Receitas pendentes</span><strong id="mRecPend">R$ 0,00</strong></div>
+          <div class="metric"><span>Despesas pagas</span><strong id="mPagas">R$ 0,00</strong></div>
+          <div class="metric"><span>Despesas pendentes</span><strong id="mPendentes">R$ 0,00</strong></div>
+          <div class="metric highlight"><span>Saldo executado</span><strong id="mSaldo">R$ 0,00</strong></div>
+          <div class="metric"><span>A receber terceiros</span><strong id="mTerceiros">R$ 0,00</strong></div>
+        </div>
       </section>
 
-      <section id="tab-movs" class="card tabpane hidden">
-        <div class="section-head"><h2>Movimentações</h2><button id="btnRecarregar" class="ghost">Atualizar</button></div>
-        <div class="filters"><select id="filterModulo"><option value="">Todos módulos</option><option>despesa</option><option>receita</option><option>conta_conjunta</option><option>meta</option><option>repasse</option><option>terceiro</option></select><select id="filterStatus"><option value="">Todos status</option><option>pendente</option><option>pago</option><option>recebido</option><option>confirmado</option><option>assumido</option></select></div>
-        <div id="movList" class="list"></div>
+      <section class="card">
+        <h2>Novo lançamento</h2>
+        <label>Tipo</label>
+        <select id="tipo">
+          <option value="despesa">Despesa</option>
+          <option value="receita">Receita</option>
+          <option value="transferencia">Transferência</option>
+        </select>
+        <label>Título</label>
+        <input id="titulo" placeholder="Ex: Mercado, salário, luz" />
+        <label>Responsável</label>
+        <select id="responsavel">
+          <option>Casa</option>
+          <option>Larissa</option>
+          <option>Davi</option>
+          <option>Terceiro</option>
+        </select>
+        <label>Quem pagou/recebeu</label>
+        <select id="pagador">
+          <option>Larissa</option>
+          <option>Davi</option>
+          <option>Casa</option>
+          <option>Terceiro</option>
+        </select>
+        <label>Categoria</label>
+        <select id="categoria"></select>
+        <label>Terceiro, se houver</label>
+        <select id="terceiro"></select>
+        <label>Valor</label>
+        <input id="valor" type="number" step="0.01" placeholder="0,00" />
+        <label>Status</label>
+        <select id="status">
+          <option value="pendente">Pendente</option>
+          <option value="pago">Pago</option>
+          <option value="recebido">Recebido</option>
+          <option value="confirmado">Confirmado</option>
+          <option value="assumido">Assumido</option>
+        </select>
+        <label>Vencimento/Pagamento previsto</label>
+        <input id="vencimento" type="date" />
+        <label>Observação</label>
+        <textarea id="observacao" rows="2"></textarea>
+        <button id="saveBtn">Salvar lançamento</button>
+        <p id="saveMsg" class="msg"></p>
       </section>
 
-      <section id="tab-cadastros" class="card tabpane hidden">
-        <h2>Cadastros</h2>
-        <div class="formrow"><select id="cadTipo"><option>categoria</option><option>terceiro</option><option>pessoa</option></select><input id="cadNome" placeholder="Nome" /><button id="btnSalvarCad">Cadastrar</button></div>
+      <section class="card">
+        <h2>Cadastros rápidos</h2>
+        <label>Tipo</label>
+        <select id="cadTipo">
+          <option value="categoria">Categoria</option>
+          <option value="terceiro">Terceiro</option>
+        </select>
+        <label>Nome</label>
+        <input id="cadNome" placeholder="Ex: Energia, Mãe do Davi" />
+        <button id="cadSaveBtn">Cadastrar</button>
         <div id="cadList" class="list compact"></div>
       </section>
 
-      <section id="tab-backup" class="card tabpane hidden">
-        <h2>Backup CSV</h2>
-        <p class="muted">Exporta movimentações do casal/família conectado.</p>
-        <button id="btnExportCsv">Exportar movimentações CSV</button>
+      <section class="card span-2">
+        <div class="section-head">
+          <h2>Movimentações</h2>
+          <div class="row small-row">
+            <select id="filterStatus" multiple size="1">
+              <option value="pendente">Pendente</option>
+              <option value="pago">Pago</option>
+              <option value="recebido">Recebido</option>
+              <option value="confirmado">Confirmado</option>
+              <option value="assumido">Assumido</option>
+            </select>
+            <button id="exportBtn" class="secondary">Exportar CSV</button>
+          </div>
+        </div>
+        <div id="movList" class="list"></div>
       </section>
     </section>
   </main>
 
-  <template id="movTpl"><div class="item"><div><strong class="title"></strong><p class="meta"></p></div><div class="right"><strong class="valor"></strong><div class="actions"><button class="pay small">Baixar</button><button class="edit small secondary">Ajustar</button><button class="del small danger">Excluir</button></div></div></div></template>
-  <script src="js/app.js"></script>
+  <dialog id="editDialog">
+    <form method="dialog" class="dialog-form">
+      <h2>Ajustar lançamento</h2>
+      <input id="editId" type="hidden" />
+      <label>Título</label><input id="editTitulo" />
+      <label>Valor</label><input id="editValor" type="number" step="0.01" />
+      <label>Status</label>
+      <select id="editStatus">
+        <option value="pendente">Pendente</option>
+        <option value="pago">Pago</option>
+        <option value="recebido">Recebido</option>
+        <option value="confirmado">Confirmado</option>
+        <option value="assumido">Assumido</option>
+      </select>
+      <label>Data pagamento/recebimento</label><input id="editPagamento" type="date" />
+      <label>Observação</label><textarea id="editObs"></textarea>
+      <div class="row">
+        <button id="confirmEditBtn" value="default">Salvar ajuste</button>
+        <button class="secondary" value="cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
 </body>
 </html>
