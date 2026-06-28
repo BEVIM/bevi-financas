@@ -12,3 +12,6 @@
 .fluxo-bars .fluxo-col em{font-style:normal;font-size:10px;color:var(--muted)}
 .selected-summary{border-color:var(--accent2);background:#f8f6ff}
 .negative-text{color:var(--danger)}
+
+/* Commit 0005 - Fluxo de acesso separado */
+.hidden{display:none!important}.auth-screen{max-width:880px;margin:24px auto}.auth-grid{align-items:end}.auth-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.auth-status{margin:10px 0 16px;color:var(--muted);font-weight:700}.logged-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:16px;background:#fff;margin:10px 0 16px}.auth-choice-grid{align-items:stretch}.sub-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:16px;display:grid;gap:12px}.sub-card h3{margin:0;color:var(--accent)}.compact-session-card{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:16px;padding:14px 16px}.compact-session-card small{display:block;color:var(--muted);margin-top:3px}.app-content{animation:beviFade .18s ease-out}@keyframes beviFade{from{opacity:.3;transform:translateY(6px)}to{opacity:1;transform:none}}@media(max-width:850px){.compact-session-card,.logged-row{display:grid}.auth-actions{justify-content:flex-start}}

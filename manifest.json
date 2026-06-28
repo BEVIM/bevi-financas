@@ -1,9 +1,8 @@
 {
   "name": "BEVI FINANÇAS",
   "short_name": "BEVI",
-  "start_url": ".",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#f8f3ee",
-  "theme_color": "#231f20",
-  "icons": []
+  "theme_color": "#231f20"
 }
