@@ -12,20 +12,34 @@
   <div class="app-shell">
     <header class="topbar">
       <div><p class="eyebrow">ERP financeiro pessoal e familiar</p><h1>BEVI FINANÇAS</h1></div>
-      <section class="cloud-card" aria-label="Sincronização Supabase">
-        <div class="cloud-status"><strong id="cloudStatus">Modo local</strong><small id="cloudUser">Entre para sincronizar Larissa + Davi</small></div>
-        <div id="authArea" class="auth-area">
-          <input id="authEmail" type="email" placeholder="E-mail" autocomplete="email">
-          <input id="authPassword" type="password" placeholder="Senha" autocomplete="current-password">
-          <button id="loginBtn" class="primary" type="button">Entrar</button>
-          <button id="signupBtn" class="ghost" type="button">Criar conta</button>
-        </div>
-        <div id="syncArea" class="sync-area" hidden>
-          <button id="syncNowBtn" class="ghost" type="button">Sincronizar agora</button>
-          <button id="logoutBtn" class="danger" type="button">Sair</button>
-        </div>
-      </section>
+     
     </header>
+
+    <section class="card auth-card" id="beviAuthPanel">
+      <h2>Acesso e sincronização</h2>
+      <div class="auth-status" id="beviSyncStatus">Carregando conexão...</div>
+      <div class="form-grid small auth-grid">
+        <label>E-mail <input id="authEmail" type="email" placeholder="seu@email.com"></label>
+        <label>Senha <input id="authPassword" type="password" placeholder="mínimo 6 caracteres"></label>
+        <div class="auth-actions">
+          <button type="button" class="primary" id="authLoginBtn">Entrar</button>
+          <button type="button" class="ghost" id="authSignupBtn">Criar conta</button>
+          <button type="button" class="ghost" id="authLogoutBtn">Sair</button>
+        </div>
+      </div>
+      <div class="form-grid small auth-grid">
+        <label>Nome da família <input id="familyNameInput" placeholder="Casa Larissa e Davi"></label>
+        <label>Código BEVI <input id="familyCodeInput" placeholder="Ex.: A1B2C3"></label>
+        <div class="auth-actions">
+          <button type="button" class="primary" id="createFamilyBtn">Criar família</button>
+          <button type="button" class="ghost" id="joinFamilyBtn">Entrar por código</button>
+          <button type="button" class="ghost" id="copyFamilyCodeBtn">Copiar código</button>
+          <button type="button" class="ghost" id="emailFamilyCodeBtn">Enviar por e-mail</button>
+          <button type="button" class="ghost" id="syncNowBtn">Sincronizar agora</button>
+        </div>
+      </div>
+      <p class="muted">Para sincronizar entre celular e computador, entre com a mesma conta ou com o mesmo Código BEVI. Enquanto não estiver conectado, os dados continuam salvos neste navegador.</p>
+    </section>
 
     <nav class="tabs" aria-label="Navegação principal">
       <button class="tab active" data-screen="dashboard">Dashboard</button>

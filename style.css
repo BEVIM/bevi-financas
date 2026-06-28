@@ -14,10 +14,10 @@
 .negative-text{color:var(--danger)}
 
 
-/* ======================================================================
-   BEVI CLOUD / LOGIN
+/* ====================================================================== 
+   COMMIT 0002 - Login, Código BEVI e sincronização Supabase
    ====================================================================== */
-.cloud-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:12px;box-shadow:var(--shadow);display:grid;gap:10px;min-width:310px;max-width:520px}
-.cloud-status strong{display:block;font-size:14px}.cloud-status small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
-.auth-area,.sync-area{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.auth-area input{min-width:130px;flex:1;padding:10px;border-radius:12px}.auth-area button,.sync-area button{padding:10px 12px;border-radius:12px}
-@media(max-width:850px){.cloud-card{width:100%;min-width:0}.auth-area,.sync-area{display:grid;grid-template-columns:1fr}.auth-area input,.auth-area button,.sync-area button{width:100%}}
+.auth-card{margin-bottom:16px;border-color:#e3d2c6;background:#fffdfb}
+.auth-status{padding:10px 12px;border-radius:14px;background:#f6eee8;border:1px solid var(--line);font-weight:800;color:var(--accent);margin-bottom:12px}
+.auth-grid{align-items:end;margin-top:10px}.auth-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.auth-actions button{min-height:42px}
+@media(max-width:850px){.auth-actions{align-items:stretch}.auth-actions button{width:100%}}
