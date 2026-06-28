@@ -160,7 +160,9 @@
             <label>Data <input name="data" type="date" required></label>
             <label>Descrição <input name="descricao" placeholder="Salário CLT, serviço avulso, reembolso..." required></label>
             <label>Valor <input name="valor" type="number" step="0.01" min="0" required></label>
+            <label>Nº de repetições <input name="repeticoes" type="number" min="1" value="1" required></label>
             <label>Pessoa <select name="pessoa"><option>Larissa</option><option>Davi</option></select></label>
+            <label>Terceiro <select name="terceiro" id="terceiroReceita"></select></label>
             <label>Status <select name="status"><option>Confirmada</option><option>Pendente</option></select></label>
             <button class="primary" type="submit">Salvar receita</button>
           </form>
@@ -173,6 +175,7 @@
             <label>Valor previsto <input name="valorPrevisto" type="number" step="0.01" min="0" required></label>
             <label>Dia previsto <input name="vencimento" type="number" min="1" max="31" required></label>
             <label>Pessoa <select name="pessoa"><option>Larissa</option><option>Davi</option></select></label>
+            <label>Terceiro <select name="terceiro" id="terceiroReceitaRecorrente"></select></label>
             <button class="primary" type="submit">Salvar receita recorrente</button>
           </form>
           <button id="gerarReceitasBtn" class="ghost">Gerar receitas previstas do mês selecionado</button>

@@ -369,8 +369,29 @@ function init(){
   importFile.addEventListener('change', importData);
   applyPaymentDefaults(); setupCollapsibleCards(); render(); initCloudAuth();
 }
-function saveReceita(e){ e.preventDefault(); const data=Object.fromEntries(new FormData(e.target)); state.receitas.push({...data,id:id(),createdAt:today,tipo:'Avulsa',valor:num(data.valor),status:data.status||'Confirmada'}); e.target.reset(); e.target.data.value=today; save(); }
-function saveReceitaRecorrente(e){ e.preventDefault(); const data=Object.fromEntries(new FormData(e.target)); state.receitasRecorrentes.push({...data,id:id(),createdAt:today,ativo:true,valorPrevisto:num(data.valorPrevisto)}); e.target.reset(); save(); }
+function saveReceita(e){
+  e.preventDefault();
+  const data=Object.fromEntries(new FormData(e.target));
+  const repeticoes=Math.max(1, num(data.repeticoes || 1));
+  const terceiro=data.terceiro || '';
+  for(let i=0;i<repeticoes;i++){
+    const dtStr=addMonths(data.data, i);
+    state.receitas.push({
+      id:id(), createdAt:today, tipo:'Avulsa', data:dtStr,
+      descricao:repeticoes>1 ? `${data.descricao} (${i+1}/${repeticoes})` : data.descricao,
+      valor:num(data.valor), pessoa:data.pessoa, status:data.status||'Confirmada',
+      terceiro, origem:terceiro ? 'Terceiro' : ''
+    });
+  }
+  e.target.reset(); e.target.data.value=today; e.target.repeticoes.value=1; save();
+}
+function saveReceitaRecorrente(e){
+  e.preventDefault();
+  const data=Object.fromEntries(new FormData(e.target));
+  const terceiro=data.terceiro || '';
+  state.receitasRecorrentes.push({...data,id:id(),createdAt:today,ativo:true,valorPrevisto:num(data.valorPrevisto),terceiro,origem:terceiro?'Terceiro':''});
+  e.target.reset(); save();
+}
 
 function saveContaConjunta(e){
   e.preventDefault();
@@ -521,6 +542,8 @@ function renderSelects(){
   const cats=state.categorias.filter(c=>c.ativo).sort(byName); const terc=state.terceiros.filter(t=>t.ativo).sort(byName);
   categoriaDespesa.innerHTML=optionList(cats,'Selecione'); categoriaConta.innerHTML=optionList(cats,'Selecione');
   terceiroDespesa.innerHTML=optionList(terc,'Não se aplica');
+  if(typeof terceiroReceita !== 'undefined') terceiroReceita.innerHTML=optionList(terc,'Não se aplica');
+  if(typeof terceiroReceitaRecorrente !== 'undefined') terceiroReceitaRecorrente.innerHTML=optionList(terc,'Não se aplica');
   cartaoDespesa.innerHTML='<option value="">Não se aplica</option>'+state.cartoes.filter(c=>c.ativo!==false).sort(byName).map(c=>`<option>${c.nome}</option>`).join('');
   if(typeof destinoContaConjunta!=='undefined') destinoContaConjunta.innerHTML='<option value="Casa">Conta conjunta da Casa</option>';
 }
@@ -548,7 +571,7 @@ function gerarReceitas(){
   state.receitasRecorrentes.filter(r=>r.ativo!==false).forEach(r=>{
     const data=clampDay(ref,r.vencimento); const desc=r.nome;
     const exists=state.receitas.some(x=>x.recorrenteId===r.id && ym(x.data)===ref);
-    if(!exists){ state.receitas.push({id:id(),recorrenteId:r.id,data,descricao:desc,valor:num(r.valorPrevisto),pessoa:r.pessoa,tipo:r.tipo,status:'Pendente'}); count++; }
+    if(!exists){ state.receitas.push({id:id(),recorrenteId:r.id,data,descricao:desc,valor:num(r.valorPrevisto),pessoa:r.pessoa,tipo:r.tipo,status:'Pendente',terceiro:r.terceiro||'',origem:r.terceiro?'Terceiro':''}); count++; }
   });
   alert(count?`${count} receita(s) prevista(s) gerada(s).`:'Nenhuma nova receita prevista para gerar.'); save();
 }
