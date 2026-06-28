@@ -898,44 +898,15 @@ async function beviCreateFamily(){
   setFamilyStatus(`Família criada. Código BEVI: ${fam.codigo}. Você pode copiar ou enviar por e-mail: mailto:${beviUser.email}?subject=${subject}&body=${body}`);
 }
 
-async function beviFindFamilyByCode(codigo){
-  const { data: fam, error } = await beviDb.from('bevi_familias').select('*').eq('codigo', codigo).maybeSingle();
-  if(error) throw error;
-  if(fam) return fam;
-
-  // Compatibilidade com famílias criadas nas versões anteriores do BEVI,
-  // quando o código podia estar registrado em bevi_configuracoes/bevi_cadastros.
-  const legacyChecks = [
-    beviDb.from('bevi_configuracoes').select('id').eq('familia', codigo).limit(1),
-    beviDb.from('bevi_cadastros').select('id').eq('familia', codigo).limit(1),
-    beviDb.from('bevi_movimentacoes').select('id').eq('familia', codigo).limit(1)
-  ];
-  for(const q of legacyChecks){
-    const { data } = await q;
-    if(data && data.length){
-      const { data: migrated, error: migErr } = await beviDb
-        .from('bevi_familias')
-        .insert({codigo, nome:`Família ${codigo}`, ativo:true})
-        .select()
-        .single();
-      if(migErr) throw migErr;
-      return migrated;
-    }
-  }
-  return null;
-}
-
 async function beviJoinFamily(){
   const codigo=beviCode(document.getElementById('familyCodeInput')?.value);
   if(!codigo){ setFamilyStatus('Informe o Código BEVI.'); return; }
   setFamilyStatus('Buscando família...');
-  let fam=null;
-  try { fam = await beviFindFamilyByCode(codigo); }
-  catch(error){ setFamilyStatus('Erro ao buscar família: '+error.message); return; }
-  if(!fam){ setFamilyStatus('Código BEVI não encontrado no banco definitivo nem nos registros anteriores. Confira se digitou corretamente.'); return; }
+  const { data: fam, error } = await beviDb.from('bevi_familias').select('*').eq('codigo', codigo).maybeSingle();
+  if(error){ setFamilyStatus('Erro ao buscar família: '+error.message); return; }
+  if(!fam){ setFamilyStatus('Código BEVI não encontrado. Confira se digitou corretamente.'); return; }
   const { error: memErr } = await beviDb.from('bevi_membros').upsert({familia_id:fam.id,user_id:beviUser.id,nome:beviUser.email,papel:'membro',ativo:true},{onConflict:'familia_id,user_id'});
   if(memErr){ setFamilyStatus('Erro ao vincular família: '+memErr.message); return; }
-  await loadFamilyList();
   await beviSelectFamily(fam.id, fam.codigo, fam.nome);
 }
 
@@ -973,8 +944,9 @@ async function beviCloudLoadState(){
   } else {
     const cached=localStorage.getItem(beviActiveStoreKey());
     state = cached ? normalize(JSON.parse(cached)) : normalize(state);
-    await beviCloudSaveNow(false);
   }
+  await beviLoadCadastrosTables();
+  await beviSyncCadastrosToCloud(false);
   beviCloudLoading=false;
   render();
 }
@@ -987,10 +959,60 @@ function beviScheduleCloudSave(){
 
 async function beviCloudSaveNow(showAlert=false){
   if(!beviFamily || !beviUser){ if(showAlert) alert('Entre e selecione uma família antes de sincronizar.'); return; }
-  const payload={familia_id:beviFamily.id,chave:'state_v1',valor:{state,updatedAt:new Date().toISOString(),version:'0.2.1'}};
+  const cadErr = await beviSyncCadastrosToCloud(false);
+  if(cadErr){ if(showAlert) alert('Erro ao sincronizar cadastros: '+cadErr); return; }
+  const payload={familia_id:beviFamily.id,chave:'state_v1',valor:{state,updatedAt:new Date().toISOString(),version:'0.2.3'}};
   const { error } = await beviDb.from('bevi_preferencias').upsert(payload,{onConflict:'familia_id,chave'});
   if(error){ if(showAlert) alert('Erro ao sincronizar: '+error.message); return; }
   if(showAlert) alert('Sincronizado com Supabase.');
+}
+
+async function beviLoadCadastrosTables(){
+  if(!beviFamily) return;
+  const [catRes, tercRes] = await Promise.all([
+    beviDb.from('bevi_categorias').select('id,nome,tipo,ativo,created_at').eq('familia_id', beviFamily.id).order('ativo',{ascending:false}).order('nome',{ascending:true}),
+    beviDb.from('bevi_terceiros').select('id,nome,ativo,created_at').eq('familia_id', beviFamily.id).order('ativo',{ascending:false}).order('nome',{ascending:true})
+  ]);
+  if(catRes.error){ console.warn('Erro ao carregar categorias:', catRes.error.message); }
+  if(tercRes.error){ console.warn('Erro ao carregar terceiros:', tercRes.error.message); }
+  if(catRes.data && catRes.data.length){
+    state.categorias = catRes.data.map(c=>({id:c.id,nome:c.nome,ativo:c.ativo!==false,createdAt:c.created_at,tipo:c.tipo||'geral'}));
+  }
+  if(tercRes.data && tercRes.data.length){
+    state.terceiros = tercRes.data.map(t=>({id:t.id,nome:t.nome,ativo:t.ativo!==false,createdAt:t.created_at}));
+  }
+  localStorage.setItem(beviActiveStoreKey(), JSON.stringify(state));
+}
+
+async function beviSyncCadastrosToCloud(showAlert=false){
+  if(!beviFamily || !beviDb) return null;
+  try{
+    const categorias=(state.categorias||[]).map(c=>({
+      id:c.id,
+      familia_id:beviFamily.id,
+      nome:c.nome,
+      tipo:c.tipo||'geral',
+      ativo:c.ativo!==false
+    })).filter(c=>c.nome);
+    const terceiros=(state.terceiros||[]).map(t=>({
+      id:t.id,
+      familia_id:beviFamily.id,
+      nome:t.nome,
+      ativo:t.ativo!==false
+    })).filter(t=>t.nome);
+    if(categorias.length){
+      const { error } = await beviDb.from('bevi_categorias').upsert(categorias,{onConflict:'id'});
+      if(error) return error.message;
+    }
+    if(terceiros.length){
+      const { error } = await beviDb.from('bevi_terceiros').upsert(terceiros,{onConflict:'id'});
+      if(error) return error.message;
+    }
+    if(showAlert) alert('Cadastros sincronizados com as tabelas definitivas.');
+    return null;
+  } catch(err){
+    return err.message || String(err);
+  }
 }
 
 init();
