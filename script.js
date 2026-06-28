@@ -46,7 +46,8 @@ function beviShowFamily(){
   beviSetVisible('familyStep', true);
   beviSetVisible('sessionInfo', false);
   const email = beviUser?.email || '';
-  beviSetStatus(email ? `Logado como ${email}. Agora conecte uma família.` : 'Conecte sua família.');
+  beviSetStatus(email ? `Logado como ${email}. Escolha uma família, informe um Código BEVI ou crie uma nova família.` : 'Conecte sua família.');
+  beviRenderFamilyList();
 }
 function beviShowApp(){
   document.body.classList.remove('bevi-locked');
@@ -73,6 +74,62 @@ function beviMailFamilyCode(){
   const body = encodeURIComponent(`Sua família no BEVI foi criada/conectada.\n\nNome: ${beviFamilyName || 'Família BEVI'}\nCódigo BEVI: ${beviFamilyCode}\n\nGuarde este código para conectar outro aparelho ou membro.`);
   window.location.href = `mailto:${beviUser?.email || ''}?subject=${subject}&body=${body}`;
 }
+function beviUserFamilyBucket(){
+  return beviUser?.id ? `USER_${beviUser.id}` : '';
+}
+async function beviGetUserFamilies(){
+  if(!beviSupabase || !beviUser) return [];
+  const bucket = beviUserFamilyBucket();
+  const { data, error } = await beviSupabase.from('bevi_configuracoes')
+    .select('valor')
+    .eq('familia', bucket)
+    .eq('chave', 'families')
+    .maybeSingle();
+  if(error){
+    console.warn('Erro ao carregar famílias do usuário', error);
+    return [];
+  }
+  return Array.isArray(data?.valor?.families) ? data.valor.families : [];
+}
+async function beviSaveUserFamilies(families){
+  if(!beviSupabase || !beviUser) return;
+  const bucket = beviUserFamilyBucket();
+  const payload = {
+    familia: bucket,
+    chave: 'families',
+    valor: { updatedAt: new Date().toISOString(), user: beviUser.email, families }
+  };
+  const { error } = await beviSupabase.from('bevi_configuracoes').upsert(payload, { onConflict: 'familia,chave' });
+  if(error) console.warn('Erro ao salvar lista de famílias do usuário', error);
+}
+async function beviAddUserFamily(code, name){
+  if(!beviSupabase || !beviUser || !code) return;
+  code = beviNormalizeCode(code);
+  const families = await beviGetUserFamilies();
+  const idx = families.findIndex(f => beviNormalizeCode(f.code) === code);
+  const item = { code, name: name || 'Família BEVI', joinedAt: new Date().toISOString(), role: idx >= 0 ? (families[idx].role || 'Membro') : 'Membro' };
+  if(idx >= 0) families[idx] = { ...families[idx], ...item };
+  else families.push(item);
+  families.sort((a,b)=>String(a.name||a.code).localeCompare(String(b.name||b.code),'pt-BR',{sensitivity:'base'}));
+  await beviSaveUserFamilies(families);
+  await beviRenderFamilyList();
+}
+async function beviRenderFamilyList(){
+  const box = document.getElementById('familyListBox');
+  if(!box) return;
+  if(!beviUser){ box.innerHTML = 'Faça login para listar suas famílias.'; return; }
+  box.innerHTML = 'Carregando famílias vinculadas ao seu e-mail...';
+  const families = await beviGetUserFamilies();
+  if(!families.length){
+    box.innerHTML = '<p class="muted">Nenhuma família vinculada a este e-mail ainda. Informe um Código BEVI existente ou crie uma nova família.</p>';
+    return;
+  }
+  box.innerHTML = families.map(f => `
+    <div class="item family-list-item">
+      <div><strong>${f.name || 'Família BEVI'}</strong><small>Código BEVI: ${f.code}</small></div>
+      <div class="right"><button type="button" class="primary" onclick="beviLoadFamily('${f.code}')">Entrar</button></div>
+    </div>`).join('');
+}
 async function beviInitClient(){
   if(!window.supabase){
     beviSetStatus('Biblioteca Supabase não carregou. Verifique a internet.', 'error');
@@ -90,6 +147,10 @@ async function beviInitClient(){
   if(beviFamilyCode){
     const ok = await beviLoadFamily(beviFamilyCode, { silent: true });
     if(ok) return;
+    localStorage.removeItem(beviFamilyKey);
+    localStorage.removeItem(beviFamilyNameKey);
+    beviFamilyCode='';
+    beviFamilyName='';
   }
   beviShowFamily();
 }
@@ -137,10 +198,7 @@ async function beviLogin(){
   const { data, error } = await beviSupabase.auth.signInWithPassword({ email, password });
   if(error){ alert('Não foi possível entrar: ' + error.message); beviSetStatus('Erro no login.', 'error'); return; }
   beviUser = data?.user || null;
-  if(beviFamilyCode){
-    const ok = await beviLoadFamily(beviFamilyCode, { silent: true });
-    if(ok) return;
-  }
+  // Após o login, o usuário deve escolher uma família conectada, informar um Código BEVI ou criar uma nova.
   beviShowFamily();
 }
 async function beviResetPassword(){
@@ -171,6 +229,7 @@ async function beviCreateFamily(){
   localStorage.setItem(beviFamilyKey, code);
   localStorage.setItem(beviFamilyNameKey, name);
   await beviSaveCloudNow(true);
+  await beviAddUserFamily(code, name);
   beviAfterFamilyConnected();
   alert(`Família criada com sucesso. Código BEVI: ${code}`);
 }
@@ -196,6 +255,7 @@ async function beviLoadFamily(code, opts={}){
   beviFamilyName = cloud.familyName || cloud.nome || 'Família BEVI';
   localStorage.setItem(beviFamilyKey, code);
   localStorage.setItem(beviFamilyNameKey, beviFamilyName);
+  await beviAddUserFamily(code, beviFamilyName);
   beviAfterFamilyConnected();
   render();
   return true;

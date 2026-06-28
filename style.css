@@ -43,3 +43,5 @@ body.bevi-unlocked #beviAuthPanel{display:none}
   .auth-actions{align-items:stretch}
   .auth-actions button{width:100%}
 }
+
+.family-list-card{margin-bottom:16px}.family-list-item{background:#fffaf6}.auth-card .inner-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px}
