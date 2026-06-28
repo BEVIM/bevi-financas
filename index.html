@@ -15,69 +15,31 @@
      
     </header>
 
-    <section class="auth-page" id="loginScreen">
-      <article class="card auth-card">
-        <p class="eyebrow">Acesso seguro</p>
-        <h2>Entrar no BEVI</h2>
-        <div class="auth-status" id="beviSyncStatus">Carregando conexão...</div>
-        <div class="form-grid small auth-grid">
-          <label>E-mail <input id="authEmail" type="email" autocomplete="email" placeholder="seu@email.com"></label>
-          <label>Senha <input id="authPassword" type="password" autocomplete="current-password" placeholder="mínimo 6 caracteres"></label>
-          <div class="auth-actions">
-            <button type="button" class="primary" id="authLoginBtn">Entrar</button>
-            <button type="button" class="ghost" id="authSignupBtn">Criar conta</button>
-            <button type="button" class="ghost" id="authResetBtn">Esqueci senha</button>
-          </div>
-        </div>
-        <p class="muted">Se o e-mail já estiver cadastrado, use <strong>Entrar</strong> ou <strong>Esqueci senha</strong>. O BEVI não cria várias contas iguais para o mesmo e-mail.</p>
-      </article>
-    </section>
-
-    <section class="auth-page hidden" id="familyScreen">
-      <article class="card auth-card">
-        <p class="eyebrow">Código BEVI</p>
-        <h2>Entrar em uma família existente</h2>
-        <p class="muted">Use esta opção se outra pessoa já criou a família e te enviou o código.</p>
-        <div class="form-grid small auth-grid">
-          <label>Código BEVI <input id="familyCodeInput" placeholder="Ex.: A1B2C3" maxlength="12"></label>
-          <div class="auth-actions">
-            <button type="button" class="primary" id="joinFamilyBtn">Entrar com código</button>
-          </div>
-        </div>
-      </article>
-
-      <article class="card auth-card">
-        <p class="eyebrow">Nova família</p>
-        <h2>Criar uma nova família</h2>
-        <p class="muted">Use esta opção se você será a primeira pessoa a criar o ambiente financeiro.</p>
-        <div class="form-grid small auth-grid">
-          <label>Nome da família <input id="familyNameInput" placeholder="Casa Larissa e Davi"></label>
-          <div class="auth-actions">
-            <button type="button" class="primary" id="createFamilyBtn">Criar família</button>
-          </div>
-        </div>
-        <div class="family-code-box hidden" id="familyCreatedBox">
-          <strong>Família criada com sucesso</strong>
-          <span>Código BEVI: <b id="createdFamilyCode">-</b></span>
-          <div class="auth-actions">
-            <button type="button" class="ghost" id="copyFamilyCodeBtn">Copiar código</button>
-            <button type="button" class="ghost" id="emailFamilyCodeBtn">Enviar por e-mail</button>
-          </div>
-        </div>
-      </article>
-
-      <button type="button" class="ghost" id="familyLogoutBtn">Sair da conta</button>
-    </section>
-
-    <div id="appContent" class="hidden">
-      <div class="app-sync-bar">
-        <span id="appSyncStatus">Conectado ao BEVI.</span>
+    <section class="card auth-card" id="beviAuthPanel">
+      <h2>Acesso e sincronização</h2>
+      <div class="auth-status" id="beviSyncStatus">Carregando conexão...</div>
+      <div class="form-grid small auth-grid">
+        <label>E-mail <input id="authEmail" type="email" placeholder="seu@email.com"></label>
+        <label>Senha <input id="authPassword" type="password" placeholder="mínimo 6 caracteres"></label>
         <div class="auth-actions">
-          <button type="button" class="ghost" id="syncNowBtn">Sincronizar agora</button>
-          <button type="button" class="ghost" id="appSwitchFamilyBtn">Trocar código BEVI</button>
+          <button type="button" class="primary" id="authLoginBtn">Entrar</button>
+          <button type="button" class="ghost" id="authSignupBtn">Criar conta</button>
           <button type="button" class="ghost" id="authLogoutBtn">Sair</button>
         </div>
       </div>
+      <div class="form-grid small auth-grid">
+        <label>Nome da família <input id="familyNameInput" placeholder="Casa Larissa e Davi"></label>
+        <label>Código BEVI <input id="familyCodeInput" placeholder="Ex.: A1B2C3"></label>
+        <div class="auth-actions">
+          <button type="button" class="primary" id="createFamilyBtn">Criar família</button>
+          <button type="button" class="ghost" id="joinFamilyBtn">Entrar por código</button>
+          <button type="button" class="ghost" id="copyFamilyCodeBtn">Copiar código</button>
+          <button type="button" class="ghost" id="emailFamilyCodeBtn">Enviar por e-mail</button>
+          <button type="button" class="ghost" id="syncNowBtn">Sincronizar agora</button>
+        </div>
+      </div>
+      <p class="muted">Para sincronizar entre celular e computador, entre com a mesma conta ou com o mesmo Código BEVI. Enquanto não estiver conectado, os dados continuam salvos neste navegador.</p>
+    </section>
 
     <nav class="tabs" aria-label="Navegação principal">
       <button class="tab active" data-screen="dashboard">Dashboard</button>
@@ -170,7 +132,9 @@
             <label>Data <input name="data" type="date" required></label>
             <label>Descrição <input name="descricao" placeholder="Salário CLT, serviço avulso, reembolso..." required></label>
             <label>Valor <input name="valor" type="number" step="0.01" min="0" required></label>
+            <label>Nº de repetições <input name="repeticoes" type="number" min="1" value="1" required></label>
             <label>Pessoa <select name="pessoa"><option>Larissa</option><option>Davi</option></select></label>
+            <label>Terceiro <select name="terceiro" id="terceiroReceita"></select></label>
             <label>Status <select name="status"><option>Confirmada</option><option>Pendente</option></select></label>
             <button class="primary" type="submit">Salvar receita</button>
           </form>
@@ -183,6 +147,7 @@
             <label>Valor previsto <input name="valorPrevisto" type="number" step="0.01" min="0" required></label>
             <label>Dia previsto <input name="vencimento" type="number" min="1" max="31" required></label>
             <label>Pessoa <select name="pessoa"><option>Larissa</option><option>Davi</option></select></label>
+            <label>Terceiro <select name="terceiro" id="terceiroReceitaRecorrente"></select></label>
             <button class="primary" type="submit">Salvar receita recorrente</button>
           </form>
           <button id="gerarReceitasBtn" class="ghost">Gerar receitas previstas do mês selecionado</button>
@@ -312,7 +277,6 @@
         <article class="card danger-zone"><h2>Configurações</h2><p>Os dados ficam salvos neste navegador. Use exportar/importar para backup.</p><div class="actions"><button id="exportBtn" class="ghost">Exportar JSON</button><button id="exportCsvBtn" class="ghost">Exportar CSV</button><button id="templateCsvBtn" class="ghost">Baixar modelo CSV</button><label class="ghost file-label">Importar JSON/CSV <input id="importFile" type="file" accept="application/json,.csv,text/csv"></label><button id="clearBtn" class="danger">Apagar tudo</button></div></article>
       </section>
     </main>
-    </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>

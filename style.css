@@ -12,19 +12,3 @@
 .fluxo-bars .fluxo-col em{font-style:normal;font-size:10px;color:var(--muted)}
 .selected-summary{border-color:var(--accent2);background:#f8f6ff}
 .negative-text{color:var(--danger)}
-
-
-/* ====================================================================== 
-   COMMIT 0002 - Login, Código BEVI e sincronização Supabase
-   ====================================================================== */
-.auth-card{margin-bottom:16px;border-color:#e3d2c6;background:#fffdfb}
-.auth-status{padding:10px 12px;border-radius:14px;background:#f6eee8;border:1px solid var(--line);font-weight:800;color:var(--accent);margin-bottom:12px}
-.auth-grid{align-items:end;margin-top:10px}.auth-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.auth-actions button{min-height:42px}
-@media(max-width:850px){.auth-actions{align-items:stretch}.auth-actions button{width:100%}}
-
-/* ====================================================================== 
-   COMMIT 0003 - Fluxo correto: Login → Família → Aplicativo
-   ====================================================================== */
-.hidden{display:none!important}
-.auth-page{max-width:760px;margin:22px auto}.auth-card{margin-bottom:16px;border-color:#e3d2c6;background:#fffdfb}.auth-status{padding:10px 12px;border-radius:14px;background:#f6eee8;border:1px solid var(--line);font-weight:800;color:var(--accent);margin-bottom:12px}.auth-grid{align-items:end;margin-top:10px}.auth-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.auth-actions button{min-height:42px}.family-code-box{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:18px;background:#fff7ed;display:grid;gap:8px}.family-code-box b{font-size:22px;letter-spacing:.12em}.app-sync-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 12px;padding:12px 14px;border:1px solid var(--line);border-radius:18px;background:#fffdfb;box-shadow:var(--shadow);font-weight:800;color:var(--accent)}
-@media(max-width:850px){.auth-actions{align-items:stretch}.auth-actions button{width:100%}.app-sync-bar{align-items:stretch;flex-direction:column}.app-sync-bar .auth-actions button{width:auto}}

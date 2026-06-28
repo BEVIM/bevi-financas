@@ -4,207 +4,6 @@ const oldKeys = ['bevi-financas-v15','bevi-financas-v14','bevi-financas-v13-corr
 const today = new Date().toISOString().slice(0,10);
 const currentYm = today.slice(0,7);
 
-
-// ====================================================================== 
-// MÓDULO 00 - SUPABASE, LOGIN, FAMÍLIA E SINCRONIZAÇÃO
-// ======================================================================
-const BEVI_SUPABASE_URL = 'https://airmjmjdrswqkgdbgind.supabase.co';
-const BEVI_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpcm1qbWpkcnN3cWtnZGJnaW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTMwOTQsImV4cCI6MjA5ODE4OTA5NH0.8uesJ31Btb5A17tAJCKi5d0O3nMOSlVPwquVc25Ktb4';
-const familyCodeKey = 'bevi-family-code';
-let beviClient = null;
-let beviUser = null;
-let beviFamilyCode = localStorage.getItem(familyCodeKey) || '';
-let syncTimer = null;
-let isLoadingRemote = false;
-
-function qs(id){ return document.getElementById(id); }
-function setHidden(id, hidden=true){ const el=qs(id); if(el) el.classList.toggle('hidden', !!hidden); }
-function syncStatus(message){
-  const loginEl = qs('beviSyncStatus');
-  const appEl = qs('appSyncStatus');
-  if(loginEl) loginEl.textContent = message;
-  if(appEl) appEl.textContent = message;
-}
-function generateFamilyCode(){
-  return Math.random().toString(36).slice(2,8).toUpperCase();
-}
-function getRemoteKey(){
-  return beviFamilyCode ? `state:${beviFamilyCode}` : '';
-}
-function normalizeFamilyCode(code){ return String(code||'').trim().toUpperCase().replace(/\s+/g,''); }
-function showStage(){
-  const hasUser = !!beviUser;
-  const hasFamily = !!beviFamilyCode;
-  setHidden('loginScreen', hasUser);
-  setHidden('familyScreen', !hasUser || hasFamily);
-  setHidden('appContent', !hasUser || !hasFamily);
-  const codeInput=qs('familyCodeInput'); if(codeInput && beviFamilyCode) codeInput.value=beviFamilyCode;
-  const createdCode=qs('createdFamilyCode'); if(createdCode && beviFamilyCode) createdCode.textContent=beviFamilyCode;
-}
-function setupSupabase(){
-  if(!window.supabase){ syncStatus('Supabase não carregou. Usando apenas este navegador.'); return; }
-  beviClient = window.supabase.createClient(BEVI_SUPABASE_URL, BEVI_SUPABASE_ANON_KEY);
-}
-async function initSupabase(){
-  setupSupabase();
-  wireAuthEvents();
-  if(!beviClient){ showStage(); return; }
-  const { data } = await beviClient.auth.getSession();
-  beviUser = data?.session?.user || null;
-  updateAuthPanel();
-  if(beviUser && beviFamilyCode){ await loadRemoteState(); }
-  beviClient.auth.onAuthStateChange(async (_event, session)=>{
-    beviUser = session?.user || null;
-    updateAuthPanel();
-    if(beviUser && beviFamilyCode){ await loadRemoteState(); }
-  });
-}
-function updateAuthPanel(){
-  const codeInput = qs('familyCodeInput');
-  if(codeInput && beviFamilyCode) codeInput.value = beviFamilyCode;
-  showStage();
-  if(!beviClient){ syncStatus('Modo local: Supabase indisponível.'); return; }
-  if(!beviUser){ syncStatus('Informe e-mail e senha para entrar ou criar conta.'); return; }
-  if(!beviFamilyCode){ syncStatus(`Conectado: ${beviUser.email}. Entre com Código BEVI ou crie uma família.`); return; }
-  syncStatus(`Conectado: ${beviUser.email} | Código BEVI: ${beviFamilyCode}`);
-}
-function wireAuthEvents(){
-  const loginBtn=qs('authLoginBtn');
-  if(loginBtn && !loginBtn.dataset.wired){ loginBtn.dataset.wired='1'; loginBtn.addEventListener('click', loginBevi); }
-  const signupBtn=qs('authSignupBtn');
-  if(signupBtn && !signupBtn.dataset.wired){ signupBtn.dataset.wired='1'; signupBtn.addEventListener('click', signupBevi); }
-  const resetBtn=qs('authResetBtn');
-  if(resetBtn && !resetBtn.dataset.wired){ resetBtn.dataset.wired='1'; resetBtn.addEventListener('click', resetPasswordBevi); }
-  const logoutBtn=qs('authLogoutBtn');
-  if(logoutBtn && !logoutBtn.dataset.wired){ logoutBtn.dataset.wired='1'; logoutBtn.addEventListener('click', logoutBevi); }
-  const familyLogoutBtn=qs('familyLogoutBtn');
-  if(familyLogoutBtn && !familyLogoutBtn.dataset.wired){ familyLogoutBtn.dataset.wired='1'; familyLogoutBtn.addEventListener('click', logoutBevi); }
-  const switchBtn=qs('appSwitchFamilyBtn');
-  if(switchBtn && !switchBtn.dataset.wired){ switchBtn.dataset.wired='1'; switchBtn.addEventListener('click', switchFamily); }
-  const createBtn=qs('createFamilyBtn');
-  if(createBtn && !createBtn.dataset.wired){ createBtn.dataset.wired='1'; createBtn.addEventListener('click', createFamily); }
-  const joinBtn=qs('joinFamilyBtn');
-  if(joinBtn && !joinBtn.dataset.wired){ joinBtn.dataset.wired='1'; joinBtn.addEventListener('click', joinFamily); }
-  const copyBtn=qs('copyFamilyCodeBtn');
-  if(copyBtn && !copyBtn.dataset.wired){ copyBtn.dataset.wired='1'; copyBtn.addEventListener('click', copyFamilyCode); }
-  const emailBtn=qs('emailFamilyCodeBtn');
-  if(emailBtn && !emailBtn.dataset.wired){ emailBtn.dataset.wired='1'; emailBtn.addEventListener('click', emailFamilyCode); }
-  const syncBtn=qs('syncNowBtn');
-  if(syncBtn && !syncBtn.dataset.wired){ syncBtn.dataset.wired='1'; syncBtn.addEventListener('click', syncNow); }
-}
-function getAuthCredentials({allowEmptyPassword=false}={}){
-  const email=qs('authEmail')?.value?.trim();
-  const password=qs('authPassword')?.value || '';
-  if(!email){ alert('Informe o e-mail.'); return null; }
-  if(!allowEmptyPassword && !password){ alert('Informe a senha.'); return null; }
-  return {email,password};
-}
-async function signupBevi(){
-  if(!beviClient) return alert('Supabase não carregou.');
-  const c=getAuthCredentials(); if(!c) return;
-  if(c.password.length < 6) return alert('A senha precisa ter pelo menos 6 caracteres.');
-  const { error } = await beviClient.auth.signUp(c);
-  if(error){
-    const msg=String(error.message||'');
-    if(/already|registered|exists|User already/i.test(msg)) return alert('Este e-mail já está cadastrado. Use Entrar ou Esqueci senha.');
-    return alert('Erro ao criar conta: '+error.message);
-  }
-  alert('Conta criada. Se o Supabase pedir confirmação, verifique seu e-mail. Depois clique em Entrar.');
-}
-async function loginBevi(){
-  if(!beviClient) return alert('Supabase não carregou.');
-  const c=getAuthCredentials(); if(!c) return;
-  const { data, error } = await beviClient.auth.signInWithPassword(c);
-  if(error) return alert('Erro ao entrar: '+error.message+'\n\nSe já criou conta e esqueceu a senha, clique em Esqueci senha.');
-  beviUser=data.user; updateAuthPanel();
-  if(beviFamilyCode) await loadRemoteState();
-}
-async function resetPasswordBevi(){
-  if(!beviClient) return alert('Supabase não carregou.');
-  const c=getAuthCredentials({allowEmptyPassword:true}); if(!c) return;
-  const { error } = await beviClient.auth.resetPasswordForEmail(c.email, { redirectTo: window.location.href.split('#')[0] });
-  if(error) return alert('Erro ao solicitar recuperação: '+error.message);
-  alert('Se este e-mail estiver cadastrado, você receberá uma mensagem para redefinir a senha.');
-}
-async function logoutBevi(){
-  if(beviClient) await beviClient.auth.signOut();
-  beviUser=null; updateAuthPanel();
-}
-function switchFamily(){
-  if(!confirm('Trocar Código BEVI? Os dados locais continuarão salvos, mas o app carregará a família informada em seguida.')) return;
-  beviFamilyCode=''; localStorage.removeItem(familyCodeKey); updateAuthPanel();
-}
-async function createFamily(){
-  if(!beviUser) return alert('Entre ou crie uma conta antes de criar a família.');
-  const name=qs('familyNameInput')?.value?.trim();
-  if(!name) return alert('Informe o nome da família.');
-  beviFamilyCode = generateFamilyCode();
-  localStorage.setItem(familyCodeKey, beviFamilyCode);
-  const codeInput=qs('familyCodeInput'); if(codeInput) codeInput.value=beviFamilyCode;
-  const createdCode=qs('createdFamilyCode'); if(createdCode) createdCode.textContent=beviFamilyCode;
-  setHidden('familyCreatedBox', false);
-  await remoteSaveState({familyName:name, createdBy:beviUser.email, createdAt:new Date().toISOString()});
-  updateAuthPanel();
-  alert(`Família criada com sucesso! Código BEVI: ${beviFamilyCode}`);
-}
-async function joinFamily(){
-  if(!beviUser) return alert('Entre ou crie uma conta antes de entrar em uma família.');
-  const code=normalizeFamilyCode(qs('familyCodeInput')?.value);
-  if(!code) return alert('Informe o Código BEVI.');
-  beviFamilyCode=code; localStorage.setItem(familyCodeKey, beviFamilyCode);
-  await loadRemoteState();
-  updateAuthPanel();
-}
-async function copyFamilyCode(){
-  if(!beviFamilyCode) return alert('Ainda não existe Código BEVI.');
-  await navigator.clipboard?.writeText(beviFamilyCode);
-  alert('Código BEVI copiado.');
-}
-function emailFamilyCode(){
-  if(!beviFamilyCode) return alert('Ainda não existe Código BEVI.');
-  const name=qs('familyNameInput')?.value?.trim() || 'Família BEVI';
-  const subject=encodeURIComponent('Código BEVI da família');
-  const body=encodeURIComponent(`Sua família foi criada no BEVI FINANÇAS.\n\nNome: ${name}\nCódigo BEVI: ${beviFamilyCode}\n\nGuarde este código e compartilhe apenas com quem fará parte do controle financeiro.`);
-  window.location.href=`mailto:?subject=${subject}&body=${body}`;
-}
-async function syncNow(){
-  if(!beviUser) return alert('Entre na conta para sincronizar.');
-  if(!beviFamilyCode) return alert('Crie ou informe um Código BEVI.');
-  await remoteSaveState();
-  alert('Sincronização enviada ao Supabase.');
-}
-function queueRemoteSave(){
-  if(isLoadingRemote || !beviClient || !beviUser || !beviFamilyCode) return;
-  clearTimeout(syncTimer);
-  syncTimer=setTimeout(()=>remoteSaveState().catch(err=>syncStatus('Falha ao sincronizar: '+err.message)), 900);
-}
-async function remoteSaveState(extra={}){
-  if(!beviClient || !beviUser || !beviFamilyCode) return;
-  syncStatus('Sincronizando...');
-  const payload={state: clone(state), updatedAt:new Date().toISOString(), updatedBy:beviUser.email, familyCode:beviFamilyCode, ...extra};
-  const { error } = await beviClient.from('bevi_configuracoes').upsert({familia:'bevi', chave:getRemoteKey(), valor:payload},{onConflict:'familia,chave'});
-  if(error) throw error;
-  syncStatus(`Sincronizado em ${new Date().toLocaleTimeString('pt-BR')} | Código BEVI: ${beviFamilyCode}`);
-}
-async function loadRemoteState(){
-  if(!beviClient || !beviUser || !beviFamilyCode) return;
-  syncStatus('Carregando dados da família...');
-  const { data, error } = await beviClient.from('bevi_configuracoes').select('valor').eq('familia','bevi').eq('chave',getRemoteKey()).maybeSingle();
-  if(error){ syncStatus('Erro ao carregar família: '+error.message); return; }
-  if(data?.valor?.state){
-    isLoadingRemote=true;
-    state=normalize(data.valor.state);
-    localStorage.setItem(storeKey, JSON.stringify(state));
-    isLoadingRemote=false;
-    render();
-    syncStatus(`Dados carregados | Código BEVI: ${beviFamilyCode}`);
-  } else {
-    await remoteSaveState();
-    syncStatus(`Família iniciada | Código BEVI: ${beviFamilyCode}`);
-  }
-  updateAuthPanel();
-}
-
 function id(){ return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random()); }
 function money(v){ return BRL.format(Number(v || 0)); }
 function ym(dateStr){ return (dateStr || '').slice(0,7); }
@@ -261,7 +60,8 @@ function normalize(s){
   st.acertos.forEach(a=>{ if(!a.id) a.id=id(); a.valor=num(a.valor); a.valorPago=num(a.valorPago); if(!a.status) a.status='Pendente'; });
   st.transferencias.forEach(t=>{ if(!t.id) t.id=id(); t.valor=num(t.valor); if(!t.status) t.status='Confirmada'; if(!t.tipo) t.tipo=t.acertoId?'Repasse':'Transferência'; t.recorrente=!!t.recorrente || t.recorrente==='on' || t.recorrente==='SIM'; if(!t.recorrenteId && t.recorrente) t.recorrenteId=t.id; });
   st.metas.forEach(m=>{ m.objetivo=num(m.objetivo); m.destinado=num(m.destinado); m.retiradaMensal=num(m.retiradaMensal); delete m.classificacao; });
-  st.receitasRecorrentes.forEach(r=>{ r.valorPrevisto=num(r.valorPrevisto); if(r.ativo===undefined) r.ativo=true; });
+  st.receitasRecorrentes.forEach(r=>{ r.valorPrevisto=num(r.valorPrevisto); if(r.ativo===undefined) r.ativo=true; if(r.terceiro && !r.origem) r.origem='Terceiro'; });
+  st.receitas.forEach(r=>{ if(r.terceiro && !r.origem) r.origem='Terceiro'; });
   return st;
 }
 function loadState(){
@@ -295,7 +95,7 @@ function syncThirdPartyLinks(){
     d.terceiroReceitaId=r.id; d.recebimentoTerceiroStatus = r.status === 'Confirmada' ? 'Recebido' : 'Pendente'; d.valorRecebidoTerceiro = r.status === 'Confirmada' ? num(r.valor) : 0;
   });
 }
-function save(){ syncThirdPartyLinks(); localStorage.setItem(storeKey, JSON.stringify(state)); queueRemoteSave(); render(); }
+function save(){ syncThirdPartyLinks(); localStorage.setItem(storeKey, JSON.stringify(state)); render(); }
 
 
 function init(){
@@ -336,8 +136,29 @@ function init(){
   importFile.addEventListener('change', importData);
   applyPaymentDefaults(); setupCollapsibleCards(); render();
 }
-function saveReceita(e){ e.preventDefault(); const data=Object.fromEntries(new FormData(e.target)); state.receitas.push({...data,id:id(),createdAt:today,tipo:'Avulsa',valor:num(data.valor),status:data.status||'Confirmada'}); e.target.reset(); e.target.data.value=today; save(); }
-function saveReceitaRecorrente(e){ e.preventDefault(); const data=Object.fromEntries(new FormData(e.target)); state.receitasRecorrentes.push({...data,id:id(),createdAt:today,ativo:true,valorPrevisto:num(data.valorPrevisto)}); e.target.reset(); save(); }
+function saveReceita(e){
+  e.preventDefault();
+  const data=Object.fromEntries(new FormData(e.target));
+  const repeticoes=Math.max(1, num(data.repeticoes || 1));
+  const terceiro=data.terceiro || '';
+  for(let i=0;i<repeticoes;i++){
+    const dtStr=addMonths(data.data, i);
+    state.receitas.push({
+      id:id(), createdAt:today, tipo:'Avulsa', data:dtStr,
+      descricao:repeticoes>1 ? `${data.descricao} (${i+1}/${repeticoes})` : data.descricao,
+      valor:num(data.valor), pessoa:data.pessoa, status:data.status||'Confirmada',
+      terceiro, origem:terceiro ? 'Terceiro' : ''
+    });
+  }
+  e.target.reset(); e.target.data.value=today; e.target.repeticoes.value=1; save();
+}
+function saveReceitaRecorrente(e){
+  e.preventDefault();
+  const data=Object.fromEntries(new FormData(e.target));
+  const terceiro=data.terceiro || '';
+  state.receitasRecorrentes.push({...data,id:id(),createdAt:today,ativo:true,valorPrevisto:num(data.valorPrevisto),terceiro,origem:terceiro?'Terceiro':''});
+  e.target.reset(); save();
+}
 
 function saveContaConjunta(e){
   e.preventDefault();
@@ -488,6 +309,8 @@ function renderSelects(){
   const cats=state.categorias.filter(c=>c.ativo).sort(byName); const terc=state.terceiros.filter(t=>t.ativo).sort(byName);
   categoriaDespesa.innerHTML=optionList(cats,'Selecione'); categoriaConta.innerHTML=optionList(cats,'Selecione');
   terceiroDespesa.innerHTML=optionList(terc,'Não se aplica');
+  if(typeof terceiroReceita !== 'undefined') terceiroReceita.innerHTML=optionList(terc,'Não se aplica');
+  if(typeof terceiroReceitaRecorrente !== 'undefined') terceiroReceitaRecorrente.innerHTML=optionList(terc,'Não se aplica');
   cartaoDespesa.innerHTML='<option value="">Não se aplica</option>'+state.cartoes.filter(c=>c.ativo!==false).sort(byName).map(c=>`<option>${c.nome}</option>`).join('');
   if(typeof destinoContaConjunta!=='undefined') destinoContaConjunta.innerHTML='<option value="Casa">Conta conjunta da Casa</option>';
 }
@@ -515,12 +338,12 @@ function gerarReceitas(){
   state.receitasRecorrentes.filter(r=>r.ativo!==false).forEach(r=>{
     const data=clampDay(ref,r.vencimento); const desc=r.nome;
     const exists=state.receitas.some(x=>x.recorrenteId===r.id && ym(x.data)===ref);
-    if(!exists){ state.receitas.push({id:id(),recorrenteId:r.id,data,descricao:desc,valor:num(r.valorPrevisto),pessoa:r.pessoa,tipo:r.tipo,status:'Pendente'}); count++; }
+    if(!exists){ state.receitas.push({id:id(),recorrenteId:r.id,data,descricao:desc,valor:num(r.valorPrevisto),pessoa:r.pessoa,tipo:r.tipo,status:'Pendente',terceiro:r.terceiro||'',origem:r.terceiro?'Terceiro':''}); count++; }
   });
   alert(count?`${count} receita(s) prevista(s) gerada(s).`:'Nenhuma nova receita prevista para gerar.'); save();
 }
 function renderReceitasRecorrentes(){
-  listaReceitasRecorrentes.innerHTML=state.receitasRecorrentes.length?[...state.receitasRecorrentes].sort(byName).map(r=>`<div class="item"><div><strong>${r.nome}</strong><small>${r.tipo} • previsto ${money(r.valorPrevisto)} • dia ${r.vencimento} • ${r.pessoa} • ${r.ativo?'Ativa':'Inativa'}</small></div><button class="ghost" onclick="toggleReceitaRecorrente('${r.id}')">${r.ativo?'Inativar':'Ativar'}</button></div>`).join(''):'Nenhuma receita recorrente cadastrada.';
+  listaReceitasRecorrentes.innerHTML=state.receitasRecorrentes.length?[...state.receitasRecorrentes].sort(byName).map(r=>`<div class="item"><div><strong>${r.nome}</strong><small>${r.tipo} • previsto ${money(r.valorPrevisto)} • dia ${r.vencimento} • ${r.pessoa}${r.terceiro?` • terceiro: ${r.terceiro}`:''} • ${r.ativo?'Ativa':'Inativa'}</small></div><button class="ghost" onclick="toggleReceitaRecorrente('${r.id}')">${r.ativo?'Inativar':'Ativar'}</button></div>`).join(''):'Nenhuma receita recorrente cadastrada.';
 }
 function toggleReceitaRecorrente(i){ const r=state.receitasRecorrentes.find(x=>x.id===i); if(r){r.ativo=!r.ativo; save();} }
 
@@ -590,7 +413,7 @@ function actualMonthFlow(ref){
 function projectedMonth(ref){
   const c=calcMonth(ref);
   const itens=[];
-  const receitasPrev=state.receitasRecorrentes.filter(r=>r.ativo!==false && !state.receitas.some(x=>(x.recorrenteId===r.id || x.origemReceita===r.id) && ym(x.data)===ref)).reduce((s,r)=>{ const v=num(r.valorPrevisto); itens.push({tipo:'Receita recorrente prevista',descricao:r.nome,data:clampDay(ref,r.vencimento),valor:v,sinal:1,responsavel:r.pessoa||'-',status:'Prevista'}); return s+v; },0);
+  const receitasPrev=state.receitasRecorrentes.filter(r=>r.ativo!==false && !state.receitas.some(x=>(x.recorrenteId===r.id || x.origemReceita===r.id) && ym(x.data)===ref)).reduce((s,r)=>{ const v=num(r.valorPrevisto); itens.push({tipo:'Receita recorrente prevista',descricao:r.terceiro?`${r.nome} (${r.terceiro})`:r.nome,data:clampDay(ref,r.vencimento),valor:v,sinal:1,responsavel:r.pessoa||'-',status:'Prevista'}); return s+v; },0);
   const receitasLancadasPendentes=state.receitas.filter(r=>r.status==='Pendente' && inMonth(r.data,ref)).reduce((s,r)=>{ const v=num(r.valor); itens.push({tipo:'Receita pendente lançada',descricao:r.descricao,data:r.data,valor:v,sinal:1,responsavel:r.pessoa||'-',status:'Pendente'}); return s+v; },0);
   const despesasPrev=state.contas.filter(cn=>cn.ativo!==false && !state.despesas.some(d=>d.origemConta===cn.id && ym(d.data)===ref)).reduce((s,cn)=>{ const v=num(cn.valorPrevisto); itens.push({tipo:'Conta recorrente prevista',descricao:cn.nome,data:clampDay(ref,cn.vencimento),valor:v,sinal:-1,responsavel:cn.responsavel||'Casal',status:'Prevista'}); return s+v; },0);
   const despesasPendentesLancadas=state.despesas.filter(d=>d.status!=='Pago' && d.responsavel!=='Terceiro' && inMonth(d.data,ref)).reduce((s,d)=>{ const v=num(d.valorPrevisto); itens.push({tipo:'Despesa pendente lançada',descricao:d.descricao,data:d.data,valor:v,sinal:-1,responsavel:d.responsavel||'-',status:d.status||'Pendente'}); return s+v; },0);
@@ -840,7 +663,8 @@ function editarReceita(i){
   const valor=askField('Valor:', num(r.valor).toFixed(2)); if(valor===null) return;
   const pessoa=askField('Pessoa (Larissa/Davi):', ['Larissa','Davi'].includes(r.pessoa)?r.pessoa:'Larissa'); if(pessoa===null) return;
   const status=askField('Status (Confirmada/Pendente):', r.status||'Confirmada'); if(status===null) return;
-  r.descricao=descricao; r.data=data; r.valor=num(valor); r.pessoa=pessoa==='Davi'?'Davi':'Larissa'; r.status=status;
+  const terceiro=askField('Terceiro (opcional):', r.terceiro||''); if(terceiro===null) return;
+  r.descricao=descricao; r.data=data; r.valor=num(valor); r.pessoa=pessoa==='Davi'?'Davi':'Larissa'; r.status=status; r.terceiro=terceiro; r.origem=terceiro?'Terceiro':'';
   if(d){ d.valorPrevisto=r.valor; if(d.status==='Pago') d.valorPago=r.valor; d.data=r.data; d.terceiro=r.terceiro; }
   save();
 }
@@ -919,7 +743,7 @@ function exportCsvData(){
   state.terceiros.forEach(x=>rows.push({tipo_registro:'terceiro',id:x.id,nome:x.nome,ativo:x.ativo===false?'NÃO':'SIM'}));
   state.cartoes.forEach(x=>rows.push({tipo_registro:'cartao',id:x.id,nome:x.nome,dono:x.dono,fecha_dia:x.fecha,vence_dia:x.vence,ativo:x.ativo===false?'NÃO':'SIM'}));
   state.contas.forEach(x=>rows.push({tipo_registro:'conta_recorrente_despesa',id:x.id,nome:x.nome,tipo_conta:x.tipo,valor:x.valorPrevisto,vencimento_dia:x.vencimento,categoria:x.categoria,responsavel:x.responsavel,pagador:x.pagador,ativo:x.ativo===false?'NÃO':'SIM'}));
-  state.receitasRecorrentes.forEach(x=>rows.push({tipo_registro:'receita_recorrente',id:x.id,descricao:x.descricao,valor:x.valorPrevisto,vencimento_dia:x.vencimento,pessoa:x.pessoa,ativo:x.ativo===false?'NÃO':'SIM'}));
+  state.receitasRecorrentes.forEach(x=>rows.push({tipo_registro:'receita_recorrente',id:x.id,descricao:x.descricao||x.nome,valor:x.valorPrevisto,vencimento_dia:x.vencimento,pessoa:x.pessoa,terceiro:x.terceiro,ativo:x.ativo===false?'NÃO':'SIM'}));
   state.despesas.forEach(x=>rows.push({tipo_registro:'despesa',id:x.id,data:x.data,data_vencimento:x.data,data_pagamento:x.dataPagamento,descricao:x.descricao,valor:x.valorPrevisto,valor_pago:x.valorPago,status:x.status,responsavel:x.responsavel,pagador:x.pagador,categoria:x.categoria,forma:x.forma,cartao:x.cartao,fatura:x.fatura,terceiro:x.terceiro,parcelas:x.parcelas,parcela_atual:x.parcelaAtual,observacao:x.observacao}));
   state.receitas.forEach(x=>rows.push({tipo_registro:'receita',id:x.id,data:x.data,data_pagamento:x.dataRecebimento,descricao:x.descricao,valor:x.valor,status:x.status,pessoa:x.pessoa,terceiro:x.terceiro,observacao:x.observacao}));
   state.transferencias.forEach(x=>rows.push({tipo_registro:x.tipo==='Conta conjunta'?'conta_conjunta':'transferencia',id:x.id,data:x.data,data_pagamento:x.status==='Confirmada'?x.data:'',descricao:x.descricao,valor:x.valor,status:x.status,de:x.de,para:x.para,recorrente:x.recorrente?'SIM':'NÃO',observacao:x.observacao}));
@@ -946,7 +770,7 @@ function importCsv(text){
     else if(tipo==='terceiro') upsert(state.terceiros,{id:r.id||id(),nome:r.nome,ativo:boolCsv(r.ativo)});
     else if(tipo==='cartao') upsert(state.cartoes,{id:r.id||id(),nome:r.nome,dono:r.dono,fecha:num(r.fecha_dia),vence:num(r.vence_dia),ativo:boolCsv(r.ativo)});
     else if(tipo==='conta_recorrente_despesa') upsert(state.contas,{id:r.id||id(),nome:r.nome,tipo:r.tipo_conta||'Variável',valorPrevisto:num(r.valor),vencimento:num(r.vencimento_dia),categoria:r.categoria,responsavel:r.responsavel||'Casal',pagador:r.pagador||'Larissa',ativo:boolCsv(r.ativo)});
-    else if(tipo==='receita_recorrente') upsert(state.receitasRecorrentes,{id:r.id||id(),descricao:r.descricao||r.nome,valorPrevisto:num(r.valor),vencimento:num(r.vencimento_dia),pessoa:r.pessoa||'Larissa',ativo:boolCsv(r.ativo)});
+    else if(tipo==='receita_recorrente') upsert(state.receitasRecorrentes,{id:r.id||id(),descricao:r.descricao||r.nome,nome:r.nome||r.descricao,valorPrevisto:num(r.valor),vencimento:num(r.vencimento_dia),pessoa:r.pessoa||'Larissa',terceiro:r.terceiro||'',origem:r.terceiro?'Terceiro':'',ativo:boolCsv(r.ativo)});
     else if(tipo==='despesa'){
       const d={id:r.id||id(),createdAt:today,tipo:'Despesa',data:r.data||today,descricao:r.descricao,valorPrevisto:num(r.valor),valorPago:num(r.valor_pago),categoria:r.categoria,responsavel:r.responsavel||'Casal',pagador:r.pagador||'Larissa',forma:r.forma||'Pix/Débito',cartao:r.cartao,terceiro:r.terceiro,parcelas:num(r.parcelas)||1,parcelaAtual:num(r.parcela_atual)||1,status:r.status||'Pendente',dataPagamento:r.data_pagamento||'',observacao:r.observacao||''};
       if(d.forma==='Cartão de crédito'){ d.fatura=r.fatura||faturaRef(d.data,d.cartao); getFaturaRecord(d.cartao,d.fatura,true); if(isFaturaPaga(d.cartao,d.fatura)) throw new Error(`Fatura paga bloqueia importação: ${d.cartao} ${d.fatura}`); }
@@ -962,4 +786,3 @@ function upsert(arr, obj){ const idx=obj.id?arr.findIndex(x=>x.id===obj.id):-1; 
 function importData(e){ const file=e.target.files[0]; if(!file) return; const r=new FileReader(); r.onload=()=>{ try{ if(file.name.toLowerCase().endsWith('.csv')) importCsv(r.result); else { state=normalize(JSON.parse(r.result)); save(); } }catch(err){ alert('Arquivo inválido: '+(err.message||err)); } e.target.value=''; }; r.readAsText(file); }
 
 init();
-initSupabase();
