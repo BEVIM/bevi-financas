@@ -12,7 +12,19 @@
   <div class="app-shell">
     <header class="topbar">
       <div><p class="eyebrow">ERP financeiro pessoal e familiar</p><h1>BEVI FINANÇAS</h1></div>
-     
+      <section class="cloud-card" aria-label="Sincronização Supabase">
+        <div class="cloud-status"><strong id="cloudStatus">Modo local</strong><small id="cloudUser">Entre para sincronizar Larissa + Davi</small></div>
+        <div id="authArea" class="auth-area">
+          <input id="authEmail" type="email" placeholder="E-mail" autocomplete="email">
+          <input id="authPassword" type="password" placeholder="Senha" autocomplete="current-password">
+          <button id="loginBtn" class="primary" type="button">Entrar</button>
+          <button id="signupBtn" class="ghost" type="button">Criar conta</button>
+        </div>
+        <div id="syncArea" class="sync-area" hidden>
+          <button id="syncNowBtn" class="ghost" type="button">Sincronizar agora</button>
+          <button id="logoutBtn" class="danger" type="button">Sair</button>
+        </div>
+      </section>
     </header>
 
     <nav class="tabs" aria-label="Navegação principal">
@@ -249,6 +261,7 @@
       </section>
     </main>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
 </body>
 </html>

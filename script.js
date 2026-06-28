@@ -31,6 +31,132 @@ let state = loadState();
 let selectedFaturaKey = '';
 let selectedFluxoMes = '';
 
+
+// ======================================================================
+// MÓDULO 00 - BEVI CLOUD / SUPABASE
+// ======================================================================
+const SUPABASE_URL = 'https://airmjmjdrswqkgdbgind.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpcm1qbWpkcnN3cWtnZGJnaW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTMwOTQsImV4cCI6MjA5ODE4OTA5NH0.8uesJ31Btb5A17tAJCKi5d0O3nMOSlVPwquVc25Ktb4';
+const beviCloud = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+let beviUser = null;
+let beviSyncTimer = null;
+let beviLoadingRemote = false;
+let beviLastSyncAt = '';
+const BEVI_FAMILIA_PADRAO = 'bevi';
+const BEVI_STATE_KEY = 'app_state_v16';
+
+function setCloudStatus(text, detail){
+  const statusEl = document.getElementById('cloudStatus');
+  const userEl = document.getElementById('cloudUser');
+  if(statusEl) statusEl.textContent = text;
+  if(userEl) userEl.textContent = detail || '';
+}
+function updateAuthUi(){
+  const authArea = document.getElementById('authArea');
+  const syncArea = document.getElementById('syncArea');
+  if(authArea) authArea.hidden = !!beviUser;
+  if(syncArea) syncArea.hidden = !beviUser;
+  if(beviUser){
+    const detalhe = beviLastSyncAt ? `${beviUser.email} • último sync ${beviLastSyncAt}` : `${beviUser.email} • sincronização ativa`;
+    setCloudStatus('Online', detalhe);
+  } else {
+    setCloudStatus('Modo local', 'Entre para sincronizar Larissa + Davi');
+  }
+}
+function scheduleRemoteSave(){
+  if(!beviUser || beviLoadingRemote || !beviCloud) return;
+  clearTimeout(beviSyncTimer);
+  beviSyncTimer = setTimeout(() => pushRemoteState(false), 900);
+}
+async function pushRemoteState(showAlert=true){
+  if(!beviUser || !beviCloud){ if(showAlert) alert('Entre na conta para sincronizar.'); return; }
+  try{
+    const payload = normalize(state);
+    const { error } = await beviCloud
+      .from('bevi_configuracoes')
+      .upsert({ familia: BEVI_FAMILIA_PADRAO, chave: BEVI_STATE_KEY, valor: payload }, { onConflict: 'familia,chave' });
+    if(error) throw error;
+    beviLastSyncAt = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    updateAuthUi();
+    if(showAlert) alert('Dados sincronizados com sucesso.');
+  } catch(err){
+    console.error('Erro ao sincronizar BEVI:', err);
+    setCloudStatus('Falha no sync', err.message || 'Erro ao salvar no Supabase');
+    if(showAlert) alert('Não consegui sincronizar: ' + (err.message || err));
+  }
+}
+async function loadRemoteState(){
+  if(!beviUser || !beviCloud) return;
+  try{
+    beviLoadingRemote = true;
+    const { data, error } = await beviCloud
+      .from('bevi_configuracoes')
+      .select('valor')
+      .eq('familia', BEVI_FAMILIA_PADRAO)
+      .eq('chave', BEVI_STATE_KEY)
+      .maybeSingle();
+    if(error) throw error;
+    if(data && data.valor){
+      state = normalize(data.valor);
+      localStorage.setItem(storeKey, JSON.stringify(state));
+      render();
+      beviLastSyncAt = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+      updateAuthUi();
+    } else {
+      await pushRemoteState(false);
+    }
+  } catch(err){
+    console.error('Erro ao carregar dados online:', err);
+    setCloudStatus('Falha ao carregar online', err.message || 'Usando dados locais');
+  } finally {
+    beviLoadingRemote = false;
+  }
+}
+async function signInBevi(){
+  if(!beviCloud) return alert('Biblioteca Supabase não carregou. Atualize a página.');
+  const email = document.getElementById('authEmail')?.value.trim();
+  const password = document.getElementById('authPassword')?.value;
+  if(!email || !password) return alert('Informe e-mail e senha.');
+  const { data, error } = await beviCloud.auth.signInWithPassword({ email, password });
+  if(error) return alert('Erro ao entrar: ' + error.message);
+  beviUser = data.user;
+  updateAuthUi();
+  await loadRemoteState();
+}
+async function signUpBevi(){
+  if(!beviCloud) return alert('Biblioteca Supabase não carregou. Atualize a página.');
+  const email = document.getElementById('authEmail')?.value.trim();
+  const password = document.getElementById('authPassword')?.value;
+  if(!email || !password) return alert('Informe e-mail e senha.');
+  const { data, error } = await beviCloud.auth.signUp({ email, password });
+  if(error) return alert('Erro ao criar conta: ' + error.message);
+  beviUser = data.user || null;
+  updateAuthUi();
+  alert('Conta criada. Se o Supabase pedir confirmação, confirme pelo e-mail antes de entrar.');
+  if(beviUser) await pushRemoteState(false);
+}
+async function signOutBevi(){
+  if(beviCloud) await beviCloud.auth.signOut();
+  beviUser = null;
+  updateAuthUi();
+}
+async function setupBeviCloud(){
+  document.getElementById('loginBtn')?.addEventListener('click', signInBevi);
+  document.getElementById('signupBtn')?.addEventListener('click', signUpBevi);
+  document.getElementById('logoutBtn')?.addEventListener('click', signOutBevi);
+  document.getElementById('syncNowBtn')?.addEventListener('click', () => pushRemoteState(true));
+  if(!beviCloud){ setCloudStatus('Modo local', 'Supabase não carregou'); return; }
+  const { data } = await beviCloud.auth.getSession();
+  beviUser = data?.session?.user || null;
+  updateAuthUi();
+  if(beviUser) await loadRemoteState();
+  beviCloud.auth.onAuthStateChange(async (_event, session) => {
+    beviUser = session?.user || null;
+    updateAuthUi();
+    if(beviUser) await loadRemoteState();
+  });
+}
+
 function normalize(s){
   s = s || {};
   if(!s.despesas && s.lancamentos){
@@ -94,7 +220,7 @@ function syncThirdPartyLinks(){
     d.terceiroReceitaId=r.id; d.recebimentoTerceiroStatus = r.status === 'Confirmada' ? 'Recebido' : 'Pendente'; d.valorRecebidoTerceiro = r.status === 'Confirmada' ? num(r.valor) : 0;
   });
 }
-function save(){ syncThirdPartyLinks(); localStorage.setItem(storeKey, JSON.stringify(state)); render(); }
+function save(){ syncThirdPartyLinks(); localStorage.setItem(storeKey, JSON.stringify(state)); render(); scheduleRemoteSave(); }
 
 
 function init(){
@@ -133,7 +259,7 @@ function init(){
   if(typeof exportCsvBtn !== 'undefined') exportCsvBtn.addEventListener('click', exportCsvData);
   if(typeof templateCsvBtn !== 'undefined') templateCsvBtn.addEventListener('click', downloadCsvTemplate);
   importFile.addEventListener('change', importData);
-  applyPaymentDefaults(); setupCollapsibleCards(); render();
+  applyPaymentDefaults(); setupCollapsibleCards(); render(); setupBeviCloud();
 }
 function saveReceita(e){ e.preventDefault(); const data=Object.fromEntries(new FormData(e.target)); state.receitas.push({...data,id:id(),createdAt:today,tipo:'Avulsa',valor:num(data.valor),status:data.status||'Confirmada'}); e.target.reset(); e.target.data.value=today; save(); }
 function saveReceitaRecorrente(e){ e.preventDefault(); const data=Object.fromEntries(new FormData(e.target)); state.receitasRecorrentes.push({...data,id:id(),createdAt:today,ativo:true,valorPrevisto:num(data.valorPrevisto)}); e.target.reset(); save(); }

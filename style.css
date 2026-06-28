@@ -12,3 +12,12 @@
 .fluxo-bars .fluxo-col em{font-style:normal;font-size:10px;color:var(--muted)}
 .selected-summary{border-color:var(--accent2);background:#f8f6ff}
 .negative-text{color:var(--danger)}
+
+
+/* ======================================================================
+   BEVI CLOUD / LOGIN
+   ====================================================================== */
+.cloud-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:12px;box-shadow:var(--shadow);display:grid;gap:10px;min-width:310px;max-width:520px}
+.cloud-status strong{display:block;font-size:14px}.cloud-status small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.auth-area,.sync-area{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.auth-area input{min-width:130px;flex:1;padding:10px;border-radius:12px}.auth-area button,.sync-area button{padding:10px 12px;border-radius:12px}
+@media(max-width:850px){.cloud-card{width:100%;min-width:0}.auth-area,.sync-area{display:grid;grid-template-columns:1fr}.auth-area input,.auth-area button,.sync-area button{width:100%}}
