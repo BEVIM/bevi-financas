@@ -8,70 +8,54 @@
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="bevi-locked">
-  <div class="app-shell">
+<body>
+
+  <section id="loginShell" class="gate-shell">
+    <article class="card gate-card">
+      <p class="eyebrow">BEVI FINANÇAS</p>
+      <h1>Acesse sua conta</h1>
+      <p class="muted">Entre para carregar os dados da sua família na nuvem.</p>
+      <div class="form-grid small gate-grid">
+        <label>E-mail <input id="authEmail" type="email" placeholder="seu@email.com" autocomplete="email"></label>
+        <label>Senha <input id="authPassword" type="password" placeholder="mínimo 6 caracteres" autocomplete="current-password"></label>
+        <div class="auth-actions">
+          <button type="button" class="primary" id="authLoginBtn">Entrar</button>
+          <button type="button" class="ghost" id="authSignupBtn">Criar conta</button>
+          <button type="button" class="ghost" id="forgotPasswordBtn">Esqueci senha</button>
+        </div>
+      </div>
+      <div class="auth-status" id="loginStatus">Aguardando login.</div>
+    </article>
+  </section>
+
+  <section id="familyShell" class="gate-shell hidden">
+    <article class="card gate-card">
+      <p class="eyebrow">Código BEVI</p>
+      <h1>Escolha sua família</h1>
+      <p class="muted">Entre em uma família já vinculada, informe um Código BEVI ou crie uma nova família.</p>
+      <div class="auth-status" id="familyStatus">Carregando famílias...</div>
+      <div id="familyList" class="list empty">Nenhuma família carregada.</div>
+      <hr class="soft-line">
+      <h2>Entrar com Código BEVI</h2>
+      <div class="form-grid small gate-grid">
+        <label>Código BEVI <input id="familyCodeInput" placeholder="Ex.: NFBDPF" maxlength="12"></label>
+        <div class="auth-actions"><button type="button" class="primary" id="joinFamilyBtn">Entrar na família</button></div>
+      </div>
+      <h2>Criar nova família</h2>
+      <div class="form-grid small gate-grid">
+        <label>Nome da família <input id="familyNameInput" placeholder="Casa Larissa e Davi"></label>
+        <label>Código desejado (opcional) <input id="newFamilyCodeInput" placeholder="Deixe vazio para gerar automático" maxlength="12"></label>
+        <div class="auth-actions"><button type="button" class="primary" id="createFamilyBtn">Criar família</button></div>
+      </div>
+      <div class="auth-actions footer-actions"><button type="button" class="ghost" id="authLogoutBtn">Sair da conta</button></div>
+    </article>
+  </section>
+
+  <div class="app-shell hidden" id="appShell">
     <header class="topbar">
       <div><p class="eyebrow">ERP financeiro pessoal e familiar</p><h1>BEVI FINANÇAS</h1></div>
-      <div class="session-pill hidden" id="sessionInfo">
-        <span id="sessionEmail">Não conectado</span>
-        <strong id="sessionFamily">Sem família</strong>
-        <div class="session-actions">
-          <button type="button" class="ghost" id="syncNowBtn">Sincronizar agora</button>
-          <button type="button" class="ghost" id="switchFamilyBtn">Trocar família</button>
-          <button type="button" class="danger" id="logoutTopBtn">Sair</button>
-        </div>
-      </div>
+      <div class="session-box"><small id="sessionInfo">Não conectado</small><div class="auth-actions"><button type="button" class="ghost" id="syncNowBtn">Sincronizar agora</button><button type="button" class="ghost" id="switchFamilyBtn">Trocar família</button><button type="button" class="danger" id="logoutAppBtn">Sair</button></div></div>
     </header>
-
-    <section class="card auth-card" id="beviAuthPanel">
-      <h2>Entrar no BEVI</h2>
-      <div class="auth-status" id="beviSyncStatus">Aguardando login...</div>
-
-      <div id="authLoginStep" class="auth-step">
-        <p class="muted">Acesse sua conta para carregar os dados salvos na nuvem.</p>
-        <div class="form-grid small auth-grid">
-          <label>E-mail <input id="authEmail" type="email" placeholder="seu@email.com" autocomplete="email"></label>
-          <label>Senha <input id="authPassword" type="password" placeholder="mínimo 6 caracteres" autocomplete="current-password"></label>
-          <div class="auth-actions">
-            <button type="button" class="primary" id="authLoginBtn">Entrar</button>
-            <button type="button" class="ghost" id="authSignupBtn">Criar conta</button>
-            <button type="button" class="ghost" id="authResetBtn">Esqueci senha</button>
-          </div>
-        </div>
-        <p class="muted">Se o e-mail já estiver cadastrado, use <b>Entrar</b> ou <b>Esqueci senha</b>. O Supabase não cria dois usuários iguais com o mesmo e-mail.</p>
-      </div>
-
-      <div id="familyStep" class="auth-step hidden">
-        <h3>Conectar família</h3>
-        <p class="muted">Depois do login, escolha uma família já vinculada ao seu e-mail, entre com um Código BEVI existente ou crie uma nova família.</p>
-        <article class="inner-card family-list-card">
-          <h3>Minhas famílias conectadas</h3>
-          <div id="familyListBox" class="list empty">Carregando famílias vinculadas ao seu e-mail...</div>
-        </article>
-        <div class="grid two">
-          <article class="inner-card">
-            <h3>Entrar com Código BEVI</h3>
-            <label>Código BEVI <input id="familyCodeInput" placeholder="Ex.: A1B2C3" maxlength="12"></label>
-            <button type="button" class="primary" id="joinFamilyBtn">Entrar na família</button>
-          </article>
-          <article class="inner-card">
-            <h3>Criar nova família</h3>
-            <label>Nome da família <input id="familyNameInput" placeholder="Casa Larissa e Davi"></label>
-            <button type="button" class="primary" id="createFamilyBtn">Criar família</button>
-          </article>
-        </div>
-        <div id="familyCreatedBox" class="family-code-box hidden">
-          <span>Código BEVI conectado</span>
-          <strong id="currentFamilyCodeLabel">-</strong>
-          <div class="auth-actions">
-            <button type="button" class="ghost" id="copyFamilyCodeBtn">Copiar código</button>
-            <button type="button" class="ghost" id="emailFamilyCodeBtn">Enviar por e-mail</button>
-            <button type="button" class="ghost" id="shareFamilyCodeBtn">Compartilhar</button>
-          </div>
-        </div>
-        <button type="button" class="ghost" id="authLogoutBtn">Sair da conta</button>
-      </div>
-    </section>
 
     <nav class="tabs" aria-label="Navegação principal">
       <button class="tab active" data-screen="dashboard">Dashboard</button>
@@ -164,9 +148,7 @@
             <label>Data <input name="data" type="date" required></label>
             <label>Descrição <input name="descricao" placeholder="Salário CLT, serviço avulso, reembolso..." required></label>
             <label>Valor <input name="valor" type="number" step="0.01" min="0" required></label>
-            <label>Nº de repetições <input name="repeticoes" type="number" min="1" value="1" required></label>
             <label>Pessoa <select name="pessoa"><option>Larissa</option><option>Davi</option></select></label>
-            <label>Terceiro <select name="terceiro" id="terceiroReceita"></select></label>
             <label>Status <select name="status"><option>Confirmada</option><option>Pendente</option></select></label>
             <button class="primary" type="submit">Salvar receita</button>
           </form>
@@ -179,7 +161,6 @@
             <label>Valor previsto <input name="valorPrevisto" type="number" step="0.01" min="0" required></label>
             <label>Dia previsto <input name="vencimento" type="number" min="1" max="31" required></label>
             <label>Pessoa <select name="pessoa"><option>Larissa</option><option>Davi</option></select></label>
-            <label>Terceiro <select name="terceiro" id="terceiroReceitaRecorrente"></select></label>
             <button class="primary" type="submit">Salvar receita recorrente</button>
           </form>
           <button id="gerarReceitasBtn" class="ghost">Gerar receitas previstas do mês selecionado</button>

@@ -4,299 +4,29 @@ const oldKeys = ['bevi-financas-v15','bevi-financas-v14','bevi-financas-v13-corr
 const today = new Date().toISOString().slice(0,10);
 const currentYm = today.slice(0,7);
 
-// ======================================================================
-// MÓDULO CLOUD - SUPABASE / LOGIN / FAMÍLIA
-// ======================================================================
+
+// =====================================================================
+// RELEASE 0.2.1 - BEVI CLOUD (Supabase como fonte oficial da família)
+// =====================================================================
 const BEVI_SUPABASE_URL = 'https://airmjmjdrswqkgdbgind.supabase.co';
 const BEVI_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpcm1qbWpkcnN3cWtnZGJnaW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTMwOTQsImV4cCI6MjA5ODE4OTA5NH0.8uesJ31Btb5A17tAJCKi5d0O3nMOSlVPwquVc25Ktb4';
-const beviFamilyKey = 'bevi-familia-atual';
-const beviFamilyNameKey = 'bevi-familia-nome';
-let beviSupabase = null;
+const beviDb = window.supabase ? window.supabase.createClient(BEVI_SUPABASE_URL, BEVI_SUPABASE_ANON_KEY) : null;
 let beviUser = null;
-let beviFamilyCode = localStorage.getItem(beviFamilyKey) || '';
-let beviFamilyName = localStorage.getItem(beviFamilyNameKey) || '';
-let beviSyncTimer = null;
-let beviCloudReady = false;
-let beviLoadingCloud = false;
+let beviFamily = null;
+let beviSaveTimer = null;
+let beviCloudLoading = false;
 
-function beviHasFinancialData(st = state){
-  return ['despesas','receitas','receitasRecorrentes','cartoes','metas','contas','faturas','acertos','transferencias','terceiros'].some(k => (st[k] || []).length > 0);
-}
-function beviSetStatus(msg, type='info'){
-  const el = document.getElementById('beviSyncStatus');
-  if(el){ el.textContent = msg; el.dataset.type = type; }
-}
-function beviSetVisible(id, visible){
-  const el = document.getElementById(id);
-  if(el) el.classList.toggle('hidden', !visible);
-}
-function beviShowLogin(){
-  document.body.classList.add('bevi-locked');
-  document.body.classList.remove('bevi-unlocked');
-  beviSetVisible('beviAuthPanel', true);
-  beviSetVisible('authLoginStep', true);
-  beviSetVisible('familyStep', false);
-  beviSetVisible('sessionInfo', false);
-}
-function beviShowFamily(){
-  document.body.classList.add('bevi-locked');
-  document.body.classList.remove('bevi-unlocked');
-  beviSetVisible('beviAuthPanel', true);
-  beviSetVisible('authLoginStep', false);
-  beviSetVisible('familyStep', true);
-  beviSetVisible('sessionInfo', false);
-  const email = beviUser?.email || '';
-  beviSetStatus(email ? `Logado como ${email}. Escolha uma família, informe um Código BEVI ou crie uma nova família.` : 'Conecte sua família.');
-  beviRenderFamilyList();
-}
-function beviShowApp(){
-  document.body.classList.remove('bevi-locked');
-  document.body.classList.add('bevi-unlocked');
-  beviSetVisible('beviAuthPanel', false);
-  beviSetVisible('sessionInfo', true);
-  const e = document.getElementById('sessionEmail');
-  const f = document.getElementById('sessionFamily');
-  if(e) e.textContent = beviUser?.email || 'Logado';
-  if(f) f.textContent = beviFamilyName ? `${beviFamilyName} • ${beviFamilyCode}` : `Família ${beviFamilyCode}`;
-}
-function beviGenerateCode(){
-  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let out='';
-  for(let i=0;i<6;i++) out += chars[Math.floor(Math.random()*chars.length)];
-  return out;
-}
-function beviNormalizeCode(code){
-  return String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
-}
-function beviMailFamilyCode(){
-  if(!beviFamilyCode){ alert('Nenhuma família conectada.'); return; }
-  const subject = encodeURIComponent('Código BEVI da família');
-  const body = encodeURIComponent(`Sua família no BEVI foi criada/conectada.\n\nNome: ${beviFamilyName || 'Família BEVI'}\nCódigo BEVI: ${beviFamilyCode}\n\nGuarde este código para conectar outro aparelho ou membro.`);
-  window.location.href = `mailto:${beviUser?.email || ''}?subject=${subject}&body=${body}`;
-}
-function beviUserFamilyBucket(){
-  return beviUser?.id ? `USER_${beviUser.id}` : '';
-}
-async function beviGetUserFamilies(){
-  if(!beviSupabase || !beviUser) return [];
-  const bucket = beviUserFamilyBucket();
-  const { data, error } = await beviSupabase.from('bevi_configuracoes')
-    .select('valor')
-    .eq('familia', bucket)
-    .eq('chave', 'families')
-    .maybeSingle();
-  if(error){
-    console.warn('Erro ao carregar famílias do usuário', error);
-    return [];
-  }
-  return Array.isArray(data?.valor?.families) ? data.valor.families : [];
-}
-async function beviSaveUserFamilies(families){
-  if(!beviSupabase || !beviUser) return;
-  const bucket = beviUserFamilyBucket();
-  const payload = {
-    familia: bucket,
-    chave: 'families',
-    valor: { updatedAt: new Date().toISOString(), user: beviUser.email, families }
-  };
-  const { error } = await beviSupabase.from('bevi_configuracoes').upsert(payload, { onConflict: 'familia,chave' });
-  if(error) console.warn('Erro ao salvar lista de famílias do usuário', error);
-}
-async function beviAddUserFamily(code, name){
-  if(!beviSupabase || !beviUser || !code) return;
-  code = beviNormalizeCode(code);
-  const families = await beviGetUserFamilies();
-  const idx = families.findIndex(f => beviNormalizeCode(f.code) === code);
-  const item = { code, name: name || 'Família BEVI', joinedAt: new Date().toISOString(), role: idx >= 0 ? (families[idx].role || 'Membro') : 'Membro' };
-  if(idx >= 0) families[idx] = { ...families[idx], ...item };
-  else families.push(item);
-  families.sort((a,b)=>String(a.name||a.code).localeCompare(String(b.name||b.code),'pt-BR',{sensitivity:'base'}));
-  await beviSaveUserFamilies(families);
-  await beviRenderFamilyList();
-}
-async function beviRenderFamilyList(){
-  const box = document.getElementById('familyListBox');
-  if(!box) return;
-  if(!beviUser){ box.innerHTML = 'Faça login para listar suas famílias.'; return; }
-  box.innerHTML = 'Carregando famílias vinculadas ao seu e-mail...';
-  const families = await beviGetUserFamilies();
-  if(!families.length){
-    box.innerHTML = '<p class="muted">Nenhuma família vinculada a este e-mail ainda. Informe um Código BEVI existente ou crie uma nova família.</p>';
-    return;
-  }
-  box.innerHTML = families.map(f => `
-    <div class="item family-list-item">
-      <div><strong>${f.name || 'Família BEVI'}</strong><small>Código BEVI: ${f.code}</small></div>
-      <div class="right"><button type="button" class="primary" onclick="beviLoadFamily('${f.code}')">Entrar</button></div>
-    </div>`).join('');
-}
-async function beviInitClient(){
-  if(!window.supabase){
-    beviSetStatus('Biblioteca Supabase não carregou. Verifique a internet.', 'error');
-    beviShowLogin();
-    return;
-  }
-  beviSupabase = window.supabase.createClient(BEVI_SUPABASE_URL, BEVI_SUPABASE_ANON_KEY);
-  const { data } = await beviSupabase.auth.getSession();
-  beviUser = data?.session?.user || null;
-  if(!beviUser){
-    beviSetStatus('Entre ou crie sua conta para sincronizar.', 'info');
-    beviShowLogin();
-    return;
-  }
-  if(beviFamilyCode){
-    const ok = await beviLoadFamily(beviFamilyCode, { silent: true });
-    if(ok) return;
-    localStorage.removeItem(beviFamilyKey);
-    localStorage.removeItem(beviFamilyNameKey);
-    beviFamilyCode='';
-    beviFamilyName='';
-  }
-  beviShowFamily();
-}
-function initCloudAuth(){
-  if(beviCloudReady) return;
-  beviCloudReady = true;
-  document.getElementById('authLoginBtn')?.addEventListener('click', beviLogin);
-  document.getElementById('authSignupBtn')?.addEventListener('click', beviSignup);
-  document.getElementById('authResetBtn')?.addEventListener('click', beviResetPassword);
-  document.getElementById('authLogoutBtn')?.addEventListener('click', beviLogout);
-  document.getElementById('logoutTopBtn')?.addEventListener('click', beviLogout);
-  document.getElementById('switchFamilyBtn')?.addEventListener('click', () => { beviFamilyCode=''; beviFamilyName=''; localStorage.removeItem(beviFamilyKey); localStorage.removeItem(beviFamilyNameKey); beviShowFamily(); });
-  document.getElementById('createFamilyBtn')?.addEventListener('click', beviCreateFamily);
-  document.getElementById('joinFamilyBtn')?.addEventListener('click', () => beviLoadFamily(document.getElementById('familyCodeInput')?.value || ''));
-  document.getElementById('copyFamilyCodeBtn')?.addEventListener('click', () => { if(beviFamilyCode) navigator.clipboard?.writeText(beviFamilyCode); alert(beviFamilyCode ? `Código copiado: ${beviFamilyCode}` : 'Nenhuma família conectada.'); });
-  document.getElementById('emailFamilyCodeBtn')?.addEventListener('click', beviMailFamilyCode);
-  document.getElementById('shareFamilyCodeBtn')?.addEventListener('click', async () => {
-    if(!beviFamilyCode){ alert('Nenhuma família conectada.'); return; }
-    const text = `Código BEVI: ${beviFamilyCode}`;
-    if(navigator.share) await navigator.share({title:'Código BEVI', text}).catch(()=>{});
-    else { navigator.clipboard?.writeText(text); alert('Código copiado para compartilhar.'); }
-  });
-  document.getElementById('syncNowBtn')?.addEventListener('click', () => beviSaveCloudNow(true));
-  beviInitClient();
-}
-async function beviSignup(){
-  const email = document.getElementById('authEmail')?.value?.trim();
-  const password = document.getElementById('authPassword')?.value || '';
-  if(!email || password.length < 6){ alert('Informe e-mail e senha com pelo menos 6 caracteres.'); return; }
-  beviSetStatus('Criando conta...', 'info');
-  const { data, error } = await beviSupabase.auth.signUp({ email, password });
-  if(error){ alert('Não foi possível criar a conta: ' + error.message); beviSetStatus('Erro ao criar conta.', 'error'); return; }
-  if(data?.user && !data?.session){
-    beviSetStatus('Conta criada. Verifique seu e-mail, se o Supabase pedir confirmação. Depois clique em Entrar.', 'success');
-  } else {
-    beviUser = data?.user || null;
-    beviShowFamily();
-  }
-}
-async function beviLogin(){
-  const email = document.getElementById('authEmail')?.value?.trim();
-  const password = document.getElementById('authPassword')?.value || '';
-  if(!email || !password){ alert('Informe e-mail e senha.'); return; }
-  beviSetStatus('Entrando...', 'info');
-  const { data, error } = await beviSupabase.auth.signInWithPassword({ email, password });
-  if(error){ alert('Não foi possível entrar: ' + error.message); beviSetStatus('Erro no login.', 'error'); return; }
-  beviUser = data?.user || null;
-  // Após o login, o usuário deve escolher uma família conectada, informar um Código BEVI ou criar uma nova.
-  beviShowFamily();
-}
-async function beviResetPassword(){
-  const email = document.getElementById('authEmail')?.value?.trim();
-  if(!email){ alert('Informe seu e-mail no campo de login.'); return; }
-  const { error } = await beviSupabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
-  if(error){ alert('Erro ao enviar recuperação: ' + error.message); return; }
-  alert('Se este e-mail estiver cadastrado, você receberá uma mensagem de recuperação de senha.');
-}
-async function beviLogout(){
-  if(beviSupabase) await beviSupabase.auth.signOut();
-  beviUser=null; beviFamilyCode=''; beviFamilyName='';
-  localStorage.removeItem(beviFamilyKey); localStorage.removeItem(beviFamilyNameKey);
-  beviShowLogin();
-}
-async function beviCreateFamily(){
-  if(!beviUser){ beviShowLogin(); return; }
-  const name = (document.getElementById('familyNameInput')?.value || '').trim();
-  if(!name){ alert('Informe o nome da família.'); return; }
-  let code = beviGenerateCode();
-  for(let i=0;i<5;i++){
-    const exists = await beviFetchFamily(code);
-    if(!exists) break;
-    code = beviGenerateCode();
-  }
-  beviFamilyCode = code;
-  beviFamilyName = name;
-  localStorage.setItem(beviFamilyKey, code);
-  localStorage.setItem(beviFamilyNameKey, name);
-  await beviSaveCloudNow(true);
-  await beviAddUserFamily(code, name);
-  beviAfterFamilyConnected();
-  alert(`Família criada com sucesso. Código BEVI: ${code}`);
-}
-async function beviFetchFamily(code){
-  code = beviNormalizeCode(code);
-  if(!code || !beviSupabase) return null;
-  const { data, error } = await beviSupabase.from('bevi_configuracoes').select('valor').eq('familia', code).eq('chave','state').maybeSingle();
-  if(error){ console.warn('Erro ao buscar família', error); return null; }
-  return data?.valor || null;
-}
-async function beviLoadFamily(code, opts={}){
-  if(!beviUser){ beviShowLogin(); return false; }
-  code = beviNormalizeCode(code);
-  if(!code){ if(!opts.silent) alert('Informe o Código BEVI.'); return false; }
-  beviSetStatus('Carregando família na nuvem...', 'info');
-  const cloud = await beviFetchFamily(code);
-  if(!cloud){ if(!opts.silent) alert('Código BEVI não encontrado. Confira o código ou crie uma nova família.'); beviShowFamily(); return false; }
-  beviLoadingCloud = true;
-  state = normalize(cloud.state || cloud || defaultState);
-  localStorage.setItem(storeKey, JSON.stringify(state));
-  beviLoadingCloud = false;
-  beviFamilyCode = code;
-  beviFamilyName = cloud.familyName || cloud.nome || 'Família BEVI';
-  localStorage.setItem(beviFamilyKey, code);
-  localStorage.setItem(beviFamilyNameKey, beviFamilyName);
-  await beviAddUserFamily(code, beviFamilyName);
-  beviAfterFamilyConnected();
-  render();
-  return true;
-}
-function beviAfterFamilyConnected(){
-  document.getElementById('currentFamilyCodeLabel') && (document.getElementById('currentFamilyCodeLabel').textContent = beviFamilyCode);
-  beviSetVisible('familyCreatedBox', true);
-  beviShowApp();
-  beviSetStatus(`Família conectada: ${beviFamilyName || beviFamilyCode}`, 'success');
-}
-function beviScheduleCloudSave(){
-  if(beviLoadingCloud || !beviSupabase || !beviUser || !beviFamilyCode) return;
-  clearTimeout(beviSyncTimer);
-  beviSyncTimer = setTimeout(() => beviSaveCloudNow(false), 900);
-}
-async function beviSaveCloudNow(showAlert=false){
-  if(!beviSupabase || !beviUser){ if(showAlert) alert('Faça login para sincronizar.'); return; }
-  if(!beviFamilyCode){ if(showAlert) alert('Conecte ou crie uma família antes de sincronizar.'); return; }
-  beviSetStatus('Sincronizando com Supabase...', 'info');
-  const payload = {
-    familia: beviFamilyCode,
-    chave: 'state',
-    valor: {
-      familyName: beviFamilyName || 'Família BEVI',
-      familyCode: beviFamilyCode,
-      updatedAt: new Date().toISOString(),
-      updatedBy: beviUser.email,
-      state
-    }
-  };
-  const { error } = await beviSupabase.from('bevi_configuracoes').upsert(payload, { onConflict: 'familia,chave' });
-  if(error){
-    console.error(error);
-    beviSetStatus('Erro ao sincronizar. Dados mantidos neste navegador.', 'error');
-    if(showAlert) alert('Erro ao sincronizar: ' + error.message);
-    return;
-  }
-  beviSetStatus(`Sincronizado em ${new Date().toLocaleTimeString('pt-BR')}`, 'success');
-  if(showAlert) alert('Dados sincronizados com sucesso.');
-}
-
+function beviActiveStoreKey(){ return beviFamily?.codigo ? `${storeKey}:${beviFamily.codigo}` : storeKey; }
+function beviCode(v){ return String(v||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12); }
+function beviNewCode(){ return Math.random().toString(36).replace(/[^a-z0-9]/gi,'').slice(2,8).toUpperCase(); }
+function setText(id, value){ const el=document.getElementById(id); if(el) el.textContent=value; }
+function showEl(id, show=true){ const el=document.getElementById(id); if(el) el.classList.toggle('hidden', !show); }
+function setLoginStatus(msg){ setText('loginStatus', msg); }
+function setFamilyStatus(msg){ setText('familyStatus', msg); }
+function setSessionInfo(){ setText('sessionInfo', beviUser && beviFamily ? `${beviUser.email} • Família ${beviFamily.nome} (${beviFamily.codigo})` : 'Não conectado'); }
+function beviShowLogin(){ showEl('loginShell', true); showEl('familyShell', false); showEl('appShell', false); }
+function beviShowFamily(){ showEl('loginShell', false); showEl('familyShell', true); showEl('appShell', false); }
+function beviShowApp(){ showEl('loginShell', false); showEl('familyShell', false); showEl('appShell', true); setSessionInfo(); }
 
 function id(){ return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random()); }
 function money(v){ return BRL.format(Number(v || 0)); }
@@ -359,7 +89,8 @@ function normalize(s){
 }
 function loadState(){
   try {
-    const fresh=localStorage.getItem(storeKey); if(fresh) return normalize(JSON.parse(fresh));
+    const fresh=localStorage.getItem(beviActiveStoreKey()); if(fresh) return normalize(JSON.parse(fresh));
+    const legacyFresh=localStorage.getItem(storeKey); if(legacyFresh) return normalize(JSON.parse(legacyFresh));
     for(const k of oldKeys){ const old=localStorage.getItem(k); if(old) return normalize(JSON.parse(old)); }
     return clone(defaultState);
   } catch { return clone(defaultState); }
@@ -388,7 +119,12 @@ function syncThirdPartyLinks(){
     d.terceiroReceitaId=r.id; d.recebimentoTerceiroStatus = r.status === 'Confirmada' ? 'Recebido' : 'Pendente'; d.valorRecebidoTerceiro = r.status === 'Confirmada' ? num(r.valor) : 0;
   });
 }
-function save(){ syncThirdPartyLinks(); localStorage.setItem(storeKey, JSON.stringify(state)); render(); beviScheduleCloudSave(); }
+function save(){
+  syncThirdPartyLinks();
+  localStorage.setItem(beviActiveStoreKey(), JSON.stringify(state));
+  render();
+  beviScheduleCloudSave();
+}
 
 
 function init(){
@@ -427,31 +163,10 @@ function init(){
   if(typeof exportCsvBtn !== 'undefined') exportCsvBtn.addEventListener('click', exportCsvData);
   if(typeof templateCsvBtn !== 'undefined') templateCsvBtn.addEventListener('click', downloadCsvTemplate);
   importFile.addEventListener('change', importData);
-  applyPaymentDefaults(); setupCollapsibleCards(); render(); initCloudAuth();
+  applyPaymentDefaults(); setupCollapsibleCards(); render();
 }
-function saveReceita(e){
-  e.preventDefault();
-  const data=Object.fromEntries(new FormData(e.target));
-  const repeticoes=Math.max(1, num(data.repeticoes || 1));
-  const terceiro=data.terceiro || '';
-  for(let i=0;i<repeticoes;i++){
-    const dtStr=addMonths(data.data, i);
-    state.receitas.push({
-      id:id(), createdAt:today, tipo:'Avulsa', data:dtStr,
-      descricao:repeticoes>1 ? `${data.descricao} (${i+1}/${repeticoes})` : data.descricao,
-      valor:num(data.valor), pessoa:data.pessoa, status:data.status||'Confirmada',
-      terceiro, origem:terceiro ? 'Terceiro' : ''
-    });
-  }
-  e.target.reset(); e.target.data.value=today; e.target.repeticoes.value=1; save();
-}
-function saveReceitaRecorrente(e){
-  e.preventDefault();
-  const data=Object.fromEntries(new FormData(e.target));
-  const terceiro=data.terceiro || '';
-  state.receitasRecorrentes.push({...data,id:id(),createdAt:today,ativo:true,valorPrevisto:num(data.valorPrevisto),terceiro,origem:terceiro?'Terceiro':''});
-  e.target.reset(); save();
-}
+function saveReceita(e){ e.preventDefault(); const data=Object.fromEntries(new FormData(e.target)); state.receitas.push({...data,id:id(),createdAt:today,tipo:'Avulsa',valor:num(data.valor),status:data.status||'Confirmada'}); e.target.reset(); e.target.data.value=today; save(); }
+function saveReceitaRecorrente(e){ e.preventDefault(); const data=Object.fromEntries(new FormData(e.target)); state.receitasRecorrentes.push({...data,id:id(),createdAt:today,ativo:true,valorPrevisto:num(data.valorPrevisto)}); e.target.reset(); save(); }
 
 function saveContaConjunta(e){
   e.preventDefault();
@@ -602,8 +317,6 @@ function renderSelects(){
   const cats=state.categorias.filter(c=>c.ativo).sort(byName); const terc=state.terceiros.filter(t=>t.ativo).sort(byName);
   categoriaDespesa.innerHTML=optionList(cats,'Selecione'); categoriaConta.innerHTML=optionList(cats,'Selecione');
   terceiroDespesa.innerHTML=optionList(terc,'Não se aplica');
-  if(typeof terceiroReceita !== 'undefined') terceiroReceita.innerHTML=optionList(terc,'Não se aplica');
-  if(typeof terceiroReceitaRecorrente !== 'undefined') terceiroReceitaRecorrente.innerHTML=optionList(terc,'Não se aplica');
   cartaoDespesa.innerHTML='<option value="">Não se aplica</option>'+state.cartoes.filter(c=>c.ativo!==false).sort(byName).map(c=>`<option>${c.nome}</option>`).join('');
   if(typeof destinoContaConjunta!=='undefined') destinoContaConjunta.innerHTML='<option value="Casa">Conta conjunta da Casa</option>';
 }
@@ -631,7 +344,7 @@ function gerarReceitas(){
   state.receitasRecorrentes.filter(r=>r.ativo!==false).forEach(r=>{
     const data=clampDay(ref,r.vencimento); const desc=r.nome;
     const exists=state.receitas.some(x=>x.recorrenteId===r.id && ym(x.data)===ref);
-    if(!exists){ state.receitas.push({id:id(),recorrenteId:r.id,data,descricao:desc,valor:num(r.valorPrevisto),pessoa:r.pessoa,tipo:r.tipo,status:'Pendente',terceiro:r.terceiro||'',origem:r.terceiro?'Terceiro':''}); count++; }
+    if(!exists){ state.receitas.push({id:id(),recorrenteId:r.id,data,descricao:desc,valor:num(r.valorPrevisto),pessoa:r.pessoa,tipo:r.tipo,status:'Pendente'}); count++; }
   });
   alert(count?`${count} receita(s) prevista(s) gerada(s).`:'Nenhuma nova receita prevista para gerar.'); save();
 }
@@ -1077,4 +790,179 @@ function importCsv(text){
 function upsert(arr, obj){ const idx=obj.id?arr.findIndex(x=>x.id===obj.id):-1; if(idx>=0) arr[idx]={...arr[idx],...obj}; else arr.push(obj); }
 function importData(e){ const file=e.target.files[0]; if(!file) return; const r=new FileReader(); r.onload=()=>{ try{ if(file.name.toLowerCase().endsWith('.csv')) importCsv(r.result); else { state=normalize(JSON.parse(r.result)); save(); } }catch(err){ alert('Arquivo inválido: '+(err.message||err)); } e.target.value=''; }; r.readAsText(file); }
 
+
+// =====================================================================
+// RELEASE 0.2.1 - AUTENTICAÇÃO, FAMÍLIA E SINCRONIZAÇÃO EM NUVEM
+// =====================================================================
+async function beviCloudInit(){
+  if(!beviDb){ setLoginStatus('Supabase não carregou. Atualize a página.'); return; }
+  bindCloudEvents();
+  const { data } = await beviDb.auth.getSession();
+  beviUser = data?.session?.user || null;
+  if(!beviUser){ beviShowLogin(); return; }
+  await afterLogin();
+}
+
+function bindCloudEvents(){
+  const on=(id,fn)=>{ const el=document.getElementById(id); if(el) el.addEventListener('click',fn); };
+  on('authLoginBtn', beviLogin);
+  on('authSignupBtn', beviSignup);
+  on('forgotPasswordBtn', beviForgotPassword);
+  on('authLogoutBtn', beviLogout);
+  on('logoutAppBtn', beviLogout);
+  on('switchFamilyBtn', async()=>{ beviFamily=null; await loadFamilyList(); beviShowFamily(); });
+  on('createFamilyBtn', beviCreateFamily);
+  on('joinFamilyBtn', beviJoinFamily);
+  on('syncNowBtn', async()=>{ await beviCloudSaveNow(true); });
+  beviDb.auth.onAuthStateChange(async(_event, session)=>{
+    beviUser = session?.user || null;
+    if(!beviUser) beviShowLogin();
+  });
+}
+
+async function beviLogin(){
+  const email=document.getElementById('authEmail')?.value?.trim();
+  const password=document.getElementById('authPassword')?.value || '';
+  if(!email || !password){ setLoginStatus('Informe e-mail e senha.'); return; }
+  setLoginStatus('Entrando...');
+  const { data, error } = await beviDb.auth.signInWithPassword({email,password});
+  if(error){ setLoginStatus('Erro no login: '+error.message); return; }
+  beviUser=data.user; await afterLogin();
+}
+
+async function beviSignup(){
+  const email=document.getElementById('authEmail')?.value?.trim();
+  const password=document.getElementById('authPassword')?.value || '';
+  if(!email || password.length<6){ setLoginStatus('Informe e-mail e senha com no mínimo 6 caracteres.'); return; }
+  setLoginStatus('Criando conta...');
+  const { data, error } = await beviDb.auth.signUp({email,password});
+  if(error){ setLoginStatus(error.message.includes('already') ? 'Este e-mail já possui cadastro. Use Entrar ou Esqueci senha.' : 'Erro ao criar conta: '+error.message); return; }
+  beviUser=data.user || null;
+  setLoginStatus('Conta criada. Se o Supabase pedir confirmação, confira seu e-mail.');
+  if(beviUser) await afterLogin();
+}
+
+async function beviForgotPassword(){
+  const email=document.getElementById('authEmail')?.value?.trim();
+  if(!email){ setLoginStatus('Informe o e-mail para recuperar a senha.'); return; }
+  const { error } = await beviDb.auth.resetPasswordForEmail(email, { redirectTo: location.href });
+  setLoginStatus(error ? 'Erro ao enviar recuperação: '+error.message : 'E-mail de recuperação enviado, se a conta existir.');
+}
+
+async function beviLogout(){
+  await beviDb.auth.signOut();
+  beviUser=null; beviFamily=null;
+  beviShowLogin();
+}
+
+async function afterLogin(){
+  setLoginStatus('Login realizado. Carregando famílias...');
+  await loadFamilyList();
+  beviShowFamily();
+}
+
+async function loadFamilyList(){
+  if(!beviUser) return;
+  setFamilyStatus('Carregando famílias vinculadas ao seu e-mail...');
+  const list=document.getElementById('familyList');
+  if(list) list.innerHTML='Carregando...';
+  const { data: membros, error } = await beviDb
+    .from('bevi_membros')
+    .select('familia_id,papel,bevi_familias(id,codigo,nome,ativo)')
+    .eq('user_id', beviUser.id)
+    .eq('ativo', true);
+  if(error){ setFamilyStatus('Erro ao carregar famílias: '+error.message); return; }
+  const familias=(membros||[]).map(m=>m.bevi_familias).filter(Boolean);
+  if(!familias.length){
+    setFamilyStatus('Nenhuma família vinculada. Entre com Código BEVI ou crie uma nova.');
+    if(list) list.innerHTML='<p class="muted">Nenhuma família vinculada ainda.</p>';
+    return;
+  }
+  setFamilyStatus('Selecione uma família para entrar.');
+  if(list) list.innerHTML=familias.map(f=>`<div class="item"><div><strong>${f.nome}</strong><small>Código BEVI: ${f.codigo}</small></div><div class="right"><button class="primary" onclick="beviSelectFamily('${f.id}','${f.codigo}','${String(f.nome).replaceAll("'","\\'")}')">Entrar</button></div></div>`).join('');
+}
+
+async function beviCreateFamily(){
+  const nome=(document.getElementById('familyNameInput')?.value || '').trim() || 'Minha família BEVI';
+  let codigo=beviCode(document.getElementById('newFamilyCodeInput')?.value) || beviNewCode();
+  setFamilyStatus('Criando família...');
+  const { data: existing } = await beviDb.from('bevi_familias').select('id').eq('codigo', codigo).maybeSingle();
+  if(existing){ setFamilyStatus('Este Código BEVI já existe. Informe outro ou deixe vazio para gerar automático.'); return; }
+  const { data: fam, error } = await beviDb.from('bevi_familias').insert({codigo,nome,ativo:true}).select().single();
+  if(error){ setFamilyStatus('Erro ao criar família: '+error.message); return; }
+  const { error: memErr } = await beviDb.from('bevi_membros').insert({familia_id:fam.id,user_id:beviUser.id,nome:beviUser.email,papel:'admin',ativo:true});
+  if(memErr){ setFamilyStatus('Família criada, mas houve erro ao vincular membro: '+memErr.message); return; }
+  await beviSelectFamily(fam.id, fam.codigo, fam.nome);
+  const subject=encodeURIComponent('Código BEVI da família');
+  const body=encodeURIComponent(`Sua família ${fam.nome} foi criada no BEVI.\n\nCódigo BEVI: ${fam.codigo}\n\nGuarde este código e compartilhe apenas com quem fará parte do controle financeiro.`);
+  setFamilyStatus(`Família criada. Código BEVI: ${fam.codigo}. Você pode copiar ou enviar por e-mail: mailto:${beviUser.email}?subject=${subject}&body=${body}`);
+}
+
+async function beviJoinFamily(){
+  const codigo=beviCode(document.getElementById('familyCodeInput')?.value);
+  if(!codigo){ setFamilyStatus('Informe o Código BEVI.'); return; }
+  setFamilyStatus('Buscando família...');
+  const { data: fam, error } = await beviDb.from('bevi_familias').select('*').eq('codigo', codigo).maybeSingle();
+  if(error){ setFamilyStatus('Erro ao buscar família: '+error.message); return; }
+  if(!fam){ setFamilyStatus('Código BEVI não encontrado. Confira se digitou corretamente.'); return; }
+  const { error: memErr } = await beviDb.from('bevi_membros').upsert({familia_id:fam.id,user_id:beviUser.id,nome:beviUser.email,papel:'membro',ativo:true},{onConflict:'familia_id,user_id'});
+  if(memErr){ setFamilyStatus('Erro ao vincular família: '+memErr.message); return; }
+  await beviSelectFamily(fam.id, fam.codigo, fam.nome);
+}
+
+async function beviSelectFamily(id, codigo, nome){
+  beviFamily={id,codigo,nome};
+  localStorage.setItem('bevi_current_family', JSON.stringify(beviFamily));
+  await ensureFamilyDefaults();
+  await beviCloudLoadState();
+  beviShowApp();
+}
+
+async function ensureFamilyDefaults(){
+  if(!beviFamily) return;
+  const defaults=['Larissa','Davi','Casa'];
+  const { data: pessoas } = await beviDb.from('bevi_pessoas').select('id,nome').eq('familia_id',beviFamily.id);
+  const nomes=new Set((pessoas||[]).map(p=>p.nome));
+  for(const nome of defaults){
+    if(!nomes.has(nome)) await beviDb.from('bevi_pessoas').insert({familia_id:beviFamily.id,nome,tipo:nome==='Casa'?'conta_conjunta':'pessoa',ativo:true});
+  }
+}
+
+async function beviCloudLoadState(){
+  if(!beviFamily) return;
+  beviCloudLoading=true;
+  const { data, error } = await beviDb
+    .from('bevi_preferencias')
+    .select('valor')
+    .eq('familia_id', beviFamily.id)
+    .eq('chave','state_v1')
+    .maybeSingle();
+  if(error){ alert('Erro ao carregar dados da nuvem: '+error.message); beviCloudLoading=false; return; }
+  if(data?.valor?.state){
+    state=normalize(data.valor.state);
+    localStorage.setItem(beviActiveStoreKey(), JSON.stringify(state));
+  } else {
+    const cached=localStorage.getItem(beviActiveStoreKey());
+    state = cached ? normalize(JSON.parse(cached)) : normalize(state);
+    await beviCloudSaveNow(false);
+  }
+  beviCloudLoading=false;
+  render();
+}
+
+function beviScheduleCloudSave(){
+  if(beviCloudLoading || !beviFamily || !beviUser) return;
+  clearTimeout(beviSaveTimer);
+  beviSaveTimer=setTimeout(()=>beviCloudSaveNow(false), 900);
+}
+
+async function beviCloudSaveNow(showAlert=false){
+  if(!beviFamily || !beviUser){ if(showAlert) alert('Entre e selecione uma família antes de sincronizar.'); return; }
+  const payload={familia_id:beviFamily.id,chave:'state_v1',valor:{state,updatedAt:new Date().toISOString(),version:'0.2.1'}};
+  const { error } = await beviDb.from('bevi_preferencias').upsert(payload,{onConflict:'familia_id,chave'});
+  if(error){ if(showAlert) alert('Erro ao sincronizar: '+error.message); return; }
+  if(showAlert) alert('Sincronizado com Supabase.');
+}
+
 init();
+beviCloudInit();

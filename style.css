@@ -13,35 +13,5 @@
 .selected-summary{border-color:var(--accent2);background:#f8f6ff}
 .negative-text{color:var(--danger)}
 
-
-
-/* ======================================================================
-   MÓDULO CLOUD - LOGIN / FAMÍLIA / SINCRONIZAÇÃO
-   ====================================================================== */
-.hidden{display:none!important}
-body.bevi-locked .tabs,
-body.bevi-locked main{display:none}
-body.bevi-unlocked #beviAuthPanel{display:none}
-.auth-card{margin-top:18px}
-.auth-status{padding:12px 14px;border-radius:16px;background:#fff;border:1px solid var(--line);margin-bottom:14px;font-weight:800;color:var(--muted)}
-.auth-status[data-type="success"]{background:#edf8ef;color:#2c6b3f;border-color:#cce8d2}
-.auth-status[data-type="error"]{background:#fff0f0;color:#8b2f2f;border-color:#efb1b1}
-.auth-step{display:grid;gap:14px}
-.auth-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
-.inner-card{border:1px solid var(--line);border-radius:20px;background:#fff;padding:16px;display:grid;gap:12px}
-.family-code-box{border:1px solid var(--accent2);background:#fffaf1;border-radius:18px;padding:14px;display:grid;gap:8px;margin-top:10px}
-.family-code-box span{color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
-.family-code-box strong{font-size:28px;letter-spacing:.12em}
-.session-pill{display:grid;gap:6px;justify-items:end;text-align:right;background:#fff;border:1px solid var(--line);border-radius:18px;padding:12px;box-shadow:var(--shadow)}
-.session-pill span{font-size:12px;color:var(--muted);font-weight:800}
-.session-pill strong{font-size:14px}
-.session-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.session-actions .ghost,.session-actions .danger{padding:8px 10px;border-radius:12px;font-size:12px}
-@media(max-width:850px){
-  .session-pill{justify-items:start;text-align:left;width:100%}
-  .session-actions{justify-content:flex-start}
-  .auth-actions{align-items:stretch}
-  .auth-actions button{width:100%}
-}
-
-.family-list-card{margin-bottom:16px}.family-list-item{background:#fffaf6}.auth-card .inner-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px}
+/* Release 0.2.1 - Login/Família */
+.hidden{display:none!important}.gate-shell{min-height:100vh;display:grid;place-items:center;padding:22px;background:linear-gradient(180deg,#f8f3ee,#fff)}.gate-card{width:min(820px,100%);margin:0}.gate-card h1{margin-bottom:8px}.gate-grid{margin-top:14px}.auth-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.auth-status{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--muted);font-weight:700}.soft-line{border:0;border-top:1px solid var(--line);margin:18px 0}.session-box{display:grid;gap:8px;justify-items:end}.session-box small{color:var(--muted);font-weight:800;text-align:right}.footer-actions{margin-top:16px}@media(max-width:850px){.session-box{justify-items:start}.topbar{display:grid}.auth-actions{align-items:stretch}.auth-actions button{width:100%}}
