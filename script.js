@@ -898,15 +898,44 @@ async function beviCreateFamily(){
   setFamilyStatus(`Família criada. Código BEVI: ${fam.codigo}. Você pode copiar ou enviar por e-mail: mailto:${beviUser.email}?subject=${subject}&body=${body}`);
 }
 
+async function beviFindFamilyByCode(codigo){
+  const { data: fam, error } = await beviDb.from('bevi_familias').select('*').eq('codigo', codigo).maybeSingle();
+  if(error) throw error;
+  if(fam) return fam;
+
+  // Compatibilidade com famílias criadas nas versões anteriores do BEVI,
+  // quando o código podia estar registrado em bevi_configuracoes/bevi_cadastros.
+  const legacyChecks = [
+    beviDb.from('bevi_configuracoes').select('id').eq('familia', codigo).limit(1),
+    beviDb.from('bevi_cadastros').select('id').eq('familia', codigo).limit(1),
+    beviDb.from('bevi_movimentacoes').select('id').eq('familia', codigo).limit(1)
+  ];
+  for(const q of legacyChecks){
+    const { data } = await q;
+    if(data && data.length){
+      const { data: migrated, error: migErr } = await beviDb
+        .from('bevi_familias')
+        .insert({codigo, nome:`Família ${codigo}`, ativo:true})
+        .select()
+        .single();
+      if(migErr) throw migErr;
+      return migrated;
+    }
+  }
+  return null;
+}
+
 async function beviJoinFamily(){
   const codigo=beviCode(document.getElementById('familyCodeInput')?.value);
   if(!codigo){ setFamilyStatus('Informe o Código BEVI.'); return; }
   setFamilyStatus('Buscando família...');
-  const { data: fam, error } = await beviDb.from('bevi_familias').select('*').eq('codigo', codigo).maybeSingle();
-  if(error){ setFamilyStatus('Erro ao buscar família: '+error.message); return; }
-  if(!fam){ setFamilyStatus('Código BEVI não encontrado. Confira se digitou corretamente.'); return; }
+  let fam=null;
+  try { fam = await beviFindFamilyByCode(codigo); }
+  catch(error){ setFamilyStatus('Erro ao buscar família: '+error.message); return; }
+  if(!fam){ setFamilyStatus('Código BEVI não encontrado no banco definitivo nem nos registros anteriores. Confira se digitou corretamente.'); return; }
   const { error: memErr } = await beviDb.from('bevi_membros').upsert({familia_id:fam.id,user_id:beviUser.id,nome:beviUser.email,papel:'membro',ativo:true},{onConflict:'familia_id,user_id'});
   if(memErr){ setFamilyStatus('Erro ao vincular família: '+memErr.message); return; }
+  await loadFamilyList();
   await beviSelectFamily(fam.id, fam.codigo, fam.nome);
 }
 
